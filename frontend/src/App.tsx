@@ -1,8 +1,8 @@
-import { DashboardLayout } from '@/components/dashboard-layout'
+import { JsonUpload } from '@/components/json-upload'
 import './App.css'
 
 function App() {
-  return <DashboardLayout />
+  return <JsonUpload />
 }
 
 export default App
