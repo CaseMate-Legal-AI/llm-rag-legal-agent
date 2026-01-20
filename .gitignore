@@ -66,3 +66,6 @@ package-lock.json
 dist/
 dist-ssr/
 *.local
+
+# Local Data
+ignore_data/
