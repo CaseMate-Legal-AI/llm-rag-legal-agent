@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 export function JsonUpload() {
   // 각 단계 완료 상태
@@ -13,6 +14,11 @@ export function JsonUpload() {
 
   // 결과 메시지
   const [resultMessage, setResultMessage] = useState('')
+
+  // 검색 관련 상태
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResult, setSearchResult] = useState('')
+  const [isSearching, setIsSearching] = useState(false)
 
   const handleParse = async () => {
     setIsLoading(true)
@@ -77,7 +83,7 @@ export function JsonUpload() {
       const response = await fetch('http://localhost:8000/api/embedding/embedding', {
         method: 'POST',
       })
-
+      console.log('handleEmbedding response:', response)
       if (!response.ok) {
         throw new Error('임베딩 실패')
       }
@@ -124,6 +130,40 @@ export function JsonUpload() {
       setResultMessage('DB 초기화 중 에러가 발생했습니다.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResult('검색어를 입력해주세요.')
+      return
+    }
+
+    setIsSearching(true)
+    setSearchResult('')
+
+    try {
+      const response = await fetch('http://localhost:8000/api/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: searchQuery }),
+      })
+
+      if (!response.ok) {
+        throw new Error('검색 실패')
+      }
+
+      const result = await response.json()
+      console.log('검색 결과:', result)
+      setSearchResult(result.result || '검색 결과가 없습니다.')
+
+    } catch (error) {
+      console.error('에러:', error)
+      setSearchResult('검색 중 에러가 발생했습니다.')
+    } finally {
+      setIsSearching(false)
     }
   }
 
@@ -209,6 +249,43 @@ export function JsonUpload() {
             )}
           </div>
         )}
+
+        {/* 검색 영역 */}
+        <div className="mt-8 pt-8 border-t border-border">
+          <h2 className="text-xl font-bold mb-4">판례 검색</h2>
+
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <Input
+                type="text"
+                placeholder="검색어를 입력하세요..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !isSearching) {
+                    handleSearch()
+                  }
+                }}
+                disabled={isSearching}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSearch}
+                disabled={isSearching || !searchQuery.trim()}
+              >
+                {isSearching ? '검색 중...' : '전송'}
+              </Button>
+            </div>
+
+            {/* 검색 결과 */}
+            {searchResult && (
+              <div className="p-4 bg-muted rounded-lg">
+                <h3 className="text-sm font-semibold mb-2">검색 결과:</h3>
+                <p className="text-sm whitespace-pre-wrap">{searchResult}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </Card>
     </div>
   )

@@ -1,13 +1,11 @@
 import json
 import re
-import os
 from typing import List
 from pathlib import Path
 from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-import chromadb
-from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
+from app.services.chromadb_service import ChromadbService
 
 # .env 파일 경로 찾기 (backend 폴더에 위치)
 env_path = Path(__file__).parent.parent.parent / '.env'
@@ -20,6 +18,7 @@ class EmbeddingService:
         self.parsed_data = []
         # 청킹 결과를 저장할 변수
         self.chunked_data = []
+        self.chromadb_service = ChromadbService()
 
     async def parssing_json(self, files: List[UploadFile]) -> List[tuple]:
         """
@@ -238,48 +237,8 @@ class EmbeddingService:
         """
         청킹된 데이터를 임베딩하여 벡터 DB에 저장합니다.
         """
-        if not self.chunked_data:
-            raise ValueError("청킹된 데이터가 없습니다. 먼저 청킹을 수행해주세요.")
 
-        client = chromadb.PersistentClient(path="./legal_vector_db")
-
-        openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            model_name="text-embedding-3-small"
-        )
-
-        collection = client.get_or_create_collection(
-            name="lease_precedents",
-            embedding_function=openai_ef
-        )
-
-        documents = []
-        metadatas = []
-        ids = []
-
-        for item in self.chunked_data:
-            chunk = item["chunk"]
-            metadata = item["metadata"]
-            chunk_index = item["chunk_index"]
-
-            documents.append(chunk)
-            metadatas.append(metadata)
-            # ID는 파일명과 사건번호, 순번을 조합하여 고유하게 만듭니다.
-            unique_id = f"{metadata['filename']}_{metadata['case_no']}_{chunk_index}"
-            ids.append(unique_id)
-
-        # 벡터 DB에 저장
-        collection.upsert(
-            documents=documents,
-            metadatas=metadatas,
-            ids=ids
-        )
-
-        return {
-            "status": "success",
-            "total_chunks_embedded": len(self.chunked_data),
-            "message": f"{len(self.chunked_data)}개의 청크가 벡터 DB에 저장되었습니다."
-        }
+        return await self.chromadb_service.process_embedding(self.chunked_data, self.parsed_data)
 
     def clear_vector_db(self) -> dict:
         """
@@ -289,22 +248,11 @@ class EmbeddingService:
             삭제 결과
         """
         try:
-            client = chromadb.PersistentClient(path="./legal_vector_db")
-
-            # 컬렉션 존재 여부 확인
-            collections = client.list_collections()
-            collection_names = [col.name for col in collections]
-
-            if "lease_precedents" in collection_names:
-                # 컬렉션 삭제
-                client.delete_collection(name="lease_precedents")
-                message = "벡터 DB의 모든 데이터가 삭제되었습니다."
-            else:
-                message = "삭제할 데이터가 없습니다."
-
             # 메모리 상의 데이터도 초기화
             self.parsed_data = []
             self.chunked_data = []
+
+            message = self.chromadb_service.clear_vector_db()
 
             return {
                 "status": "success",

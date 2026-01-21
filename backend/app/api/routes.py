@@ -133,3 +133,41 @@ async def clear_db_endpoint():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class SearchRequest(BaseModel):
+    query: str
+    top_k: int = 3
+
+@router.post("/search")
+async def search_endpoint(request: SearchRequest):
+    """
+    벡터 DB에서 유사한 판례를 검색하는 엔드포인트
+
+    Args:
+        request: 검색 쿼리
+
+    Returns:
+        검색 결과
+    """
+    try:
+        result = await rag_service.search(query=request.query, top_k=request.top_k)
+
+        # 결과를 텍스트로 포맷팅
+        if result['results']:
+            formatted_text = f"검색어: {result['query']}\n\n"
+            formatted_text += f"총 {result['count']}개의 결과를 찾았습니다.\n\n"
+
+            for i, item in enumerate(result['results'], 1):
+                formatted_text += f"=== 결과 {i} ===\n"
+                formatted_text += f"사건번호: {item['metadata'].get('case_no', 'N/A')}\n"
+                formatted_text += f"법원: {item['metadata'].get('court', 'N/A')}\n"
+                formatted_text += f"날짜: {item['metadata'].get('date', 'N/A')}\n"
+                formatted_text += f"분류: {item['metadata'].get('category', 'N/A')}\n\n"
+                formatted_text += f"내용:\n{item['content'][:500]}...\n\n"
+
+            return {"status": "success", "result": formatted_text}
+        else:
+            return {"status": "success", "result": "검색 결과가 없습니다."}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
