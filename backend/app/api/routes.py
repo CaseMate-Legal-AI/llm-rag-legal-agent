@@ -71,6 +71,22 @@ async def parssing_json_endpoint(files: List[UploadFile] = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/embedding/parse-sample-directory")
+async def parse_sample_directory_endpoint():
+    """
+    frontend/src/sample/pan 디렉토리의 JSON 파일들을 파싱하는 엔드포인트
+
+    Returns:
+        파싱 결과 (총 파일 수, 성공/실패 수)
+    """
+    try:
+        result = await embedding_service.parse_sample_directory()
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/embedding/chunking")
 async def chunking_endpoint():
     """
@@ -100,6 +116,20 @@ async def embedding_endpoint():
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/embedding/clear-db")
+async def clear_db_endpoint():
+    """
+    벡터 DB의 모든 데이터를 삭제하는 엔드포인트
+
+    Returns:
+        삭제 결과
+    """
+    try:
+        result = embedding_service.clear_vector_db()
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

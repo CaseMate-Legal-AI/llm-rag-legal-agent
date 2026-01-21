@@ -69,3 +69,4 @@ dist-ssr/
 
 # Local Data
 ignore_data/
+frontend/src/sample/

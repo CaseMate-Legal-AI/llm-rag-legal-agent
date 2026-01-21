@@ -3,9 +3,6 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
 export function JsonUpload() {
-  const [files, setFiles] = useState<File[]>([])
-  const [isDragging, setIsDragging] = useState(false)
-
   // 각 단계 완료 상태
   const [isParsed, setIsParsed] = useState(false)
   const [isChunked, setIsChunked] = useState(false)
@@ -17,45 +14,17 @@ export function JsonUpload() {
   // 결과 메시지
   const [resultMessage, setResultMessage] = useState('')
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragging(false)
-  }
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragging(false)
-
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(
-      file => file.name.endsWith('.json')
-    )
-
-    setFiles(prevFiles => [...prevFiles, ...droppedFiles])
-  }
-
   const handleParse = async () => {
-    console.log(files.length)
     setIsLoading(true)
     setResultMessage('')
 
     try {
-      const formData = new FormData()
-      files.forEach(file => {
-        formData.append('files', file)
-      })
-
-      const response = await fetch('http://localhost:8000/api/embedding/parssing-json', {
+      const response = await fetch('http://localhost:8000/api/embedding/parse-sample-directory', {
         method: 'POST',
-        body: formData,
       })
 
       if (!response.ok) {
-        throw new Error('파일 업로드 실패')
+        throw new Error('샘플 파일 파싱 실패')
       }
 
       const result = await response.json()
@@ -67,7 +36,7 @@ export function JsonUpload() {
 
     } catch (error) {
       console.error('에러:', error)
-      setResultMessage('파일 업로드 중 에러가 발생했습니다.')
+      setResultMessage('샘플 파일 파싱 중 에러가 발생했습니다.')
     } finally {
       setIsLoading(false)
     }
@@ -126,70 +95,83 @@ export function JsonUpload() {
     }
   }
 
+  const handleClearDB = async () => {
+    if (!window.confirm('벡터 DB의 모든 데이터가 삭제됩니다. 계속하시겠습니까?')) {
+      return
+    }
+
+    setIsLoading(true)
+    setResultMessage('')
+
+    try {
+      const response = await fetch('http://localhost:8000/api/embedding/clear-db', {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('DB 초기화 실패')
+      }
+
+      const result = await response.json()
+      console.log('DB 초기화 결과:', result)
+      setResultMessage(result.message || 'DB 초기화 완료')
+      setIsParsed(false)
+      setIsChunked(false)
+      setIsEmbedded(false)
+
+    } catch (error) {
+      console.error('에러:', error)
+      setResultMessage('DB 초기화 중 에러가 발생했습니다.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
     <div className="flex h-screen items-center justify-center bg-muted/30 p-8">
       <Card className="w-full max-w-2xl p-8">
-        <h1 className="text-2xl font-bold mb-6">JSON 파일 업로드</h1>
+        <h1 className="text-2xl font-bold mb-6">샘플 데이터 파싱</h1>
 
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-            isDragging
-              ? 'border-primary bg-primary/10'
-              : 'border-muted-foreground/25 hover:border-muted-foreground/50'
-          }`}
-        >
+        <div className="border-2 border-dashed rounded-lg p-12 text-center bg-muted/50">
           <div className="text-muted-foreground">
-            <p className="text-lg mb-2">JSON 파일을 여기에 드래그하세요</p>
-            <p className="text-sm">(.json 파일만 허용됩니다)</p>
+            <p className="text-lg mb-2">샘플 데이터 파일 파싱</p>
+            <p className="text-sm">/src/sample/pan 디렉토리의 JSON 파일들을 파싱합니다</p>
           </div>
         </div>
-
-        {files.length > 0 && (
-          <div className="mt-6">
-            <h2 className="text-lg font-semibold mb-3">업로드된 파일 ({files.length}개)</h2>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {files.map((file, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                >
-                  <span className="text-sm truncate">{file.name}</span>
-                  <span className="text-xs text-muted-foreground ml-2">
-                    {(file.size / 1024).toFixed(2)} KB
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="mt-6 space-y-3">
           {/* 파싱 버튼 */}
           <div className="flex gap-3">
             <Button
               onClick={handleParse}
-              disabled={files.length === 0 || isLoading}
+              disabled={isLoading}
               className="flex-1"
             >
               {isLoading && !isParsed ? '파싱 중...' : '파싱'}
             </Button>
             <Button
               onClick={() => {
-                setFiles([])
                 setIsParsed(false)
                 setIsChunked(false)
                 setIsEmbedded(false)
                 setResultMessage('')
               }}
               variant="outline"
-              disabled={files.length === 0 || isLoading}
+              disabled={isLoading}
             >
               초기화
             </Button>
           </div>
+
+          {/* DB 초기화 버튼 */}
+          <Button
+            onClick={handleClearDB}
+            disabled={isLoading}
+            variant="destructive"
+            className="w-full"
+          >
+            벡터 DB 초기화
+          </Button>
 
           {/* 청킹 버튼 - 파싱 완료 후 표시 */}
           {isParsed && (
