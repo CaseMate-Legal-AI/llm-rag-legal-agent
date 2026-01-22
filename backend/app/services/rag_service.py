@@ -1,9 +1,6 @@
-import os
-import chromadb
-from typing import List
 from pathlib import Path
-from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
+from chromadb_service import ChromadbService
 
 # .env 파일 경로 찾기 (backend 폴더에 위치)
 env_path = Path(__file__).parent.parent.parent / '.env'
@@ -16,7 +13,7 @@ class RagService:
     """
 
     def __init__(self):
-        pass
+        self.chromadb_service = ChromadbService()
 
     async def search(self, query: str, top_k: int = 3) -> dict:
         """
@@ -29,51 +26,5 @@ class RagService:
         Returns:
             검색 결과
         """
-        try:
-            # ChromaDB 클라이언트 연결
-            client = chromadb.PersistentClient(path="./legal_vector_db")
 
-            # OpenAI 임베딩 함수 설정
-            openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-                api_key=os.getenv("OPENAI_API_KEY"),
-                model_name="text-embedding-3-small"
-            )
-
-            # 컬렉션 가져오기
-            collection = client.get_collection(
-                name="lease_precedents",
-                embedding_function=openai_ef
-            )
-
-            # 검색 수행
-            results = collection.query(
-                query_texts=[query],
-                n_results=top_k
-            )
-
-            if not results['documents'] or len(results['documents'][0]) == 0:
-                return {
-                    "status": "success",
-                    "query": query,
-                    "results": [],
-                    "message": "검색 결과가 없습니다."
-                }
-
-            # 검색 결과 포맷팅
-            formatted_results = []
-            for i in range(len(results['documents'][0])):
-                formatted_results.append({
-                    "content": results['documents'][0][i],
-                    "metadata": results['metadatas'][0][i],
-                    "distance": results['distances'][0][i] if 'distances' in results else None
-                })
-
-            return {
-                "status": "success",
-                "query": query,
-                "results": formatted_results,
-                "count": len(formatted_results)
-            }
-
-        except Exception as e:
-            raise Exception(f"검색 중 오류 발생: {str(e)}")
+        return await self.chromadb_service.search(query, top_k)
