@@ -1,14 +1,18 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from numpy import vecdot
 from pydantic import BaseModel
 from typing import List
-from app.services.llm_service import LLMService
-from app.services.rag_service import RagService
 from app.services.embedding_service import EmbeddingService
+from app.services.chromadb_service import ChromadbService
+from app.services.pinecone_service import PineconeService
+from app.models.vectordb import VectorDB
 
 router = APIRouter()
-llm_service = LLMService()
-rag_service = RagService()
+# llm_service = LLMService()
+# rag_service = RagService()
 embedding_service = EmbeddingService()
+vectordb = ChromadbService()
+
 
 class ChatRequest(BaseModel):
     message: str
@@ -112,7 +116,7 @@ async def embedding_endpoint():
         임베딩 결과 (저장된 청크 수)
     """
     try:
-        result = await embedding_service.process_embedding()
+        result = await embedding_service.process_embedding(vectordb=vectordb)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -128,7 +132,7 @@ async def clear_db_endpoint():
         삭제 결과
     """
     try:
-        result = embedding_service.clear_vector_db()
+        result = embedding_service.clear_vector_db(vectordb=vectordb)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -149,7 +153,7 @@ async def search_endpoint(request: SearchRequest):
         검색 결과
     """
     try:
-        result = await rag_service.search(query=request.query, top_k=request.top_k)
+        result = await embedding_service.search(vectordb=vectordb, query=request.query, top_k=request.top_k)
 
         # 결과를 텍스트로 포맷팅
         if result['results']:

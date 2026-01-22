@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import UploadFile
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
-from app.services.chromadb_service import ChromadbService
+from app.models.vectordb import VectorDB
 
 # .env 파일 경로 찾기 (backend 폴더에 위치)
 env_path = Path(__file__).parent.parent.parent / '.env'
@@ -18,7 +18,6 @@ class EmbeddingService:
         self.parsed_data = []
         # 청킹 결과를 저장할 변수
         self.chunked_data = []
-        self.chromadb_service = ChromadbService()
 
     async def parssing_json(self, files: List[UploadFile]) -> List[tuple]:
         """
@@ -233,14 +232,16 @@ class EmbeddingService:
             "message": f"{len(self.parsed_data)}개 문서에서 {total_chunks}개의 청크가 생성되었습니다."
         }
 
-    async def process_embedding(self) -> dict:
+    async def process_embedding(self, vectordb: VectorDB) -> dict:
         """
         청킹된 데이터를 임베딩하여 벡터 DB에 저장합니다.
         """
 
-        return await self.chromadb_service.process_embedding(self.chunked_data, self.parsed_data)
+        print("[DEBUG] 임베딩 처리 시작...")
 
-    def clear_vector_db(self) -> dict:
+        return await vectordb.process_embedding(self.chunked_data, self.parsed_data)
+
+    def clear_vector_db(self, vectordb: VectorDB) -> dict:
         """
         벡터 DB의 모든 데이터를 삭제합니다.
 
@@ -252,7 +253,7 @@ class EmbeddingService:
             self.parsed_data = []
             self.chunked_data = []
 
-            message = self.chromadb_service.clear_vector_db()
+            message = vectordb.clear_vector_db()
 
             return {
                 "status": "success",
@@ -260,3 +261,17 @@ class EmbeddingService:
             }
         except Exception as e:
             raise Exception(f"DB 초기화 실패: {str(e)}")
+
+    async def search(self, vectordb: VectorDB, query: str, top_k: int = 3) -> dict:
+        """
+        벡터 DB에서 유사한 문서를 검색합니다.
+
+        Args:
+            query: 검색 쿼리
+            top_k: 반환할 문서 개수
+
+        Returns:
+            검색 결과
+        """
+
+        return await vectordb.search(query, top_k)
