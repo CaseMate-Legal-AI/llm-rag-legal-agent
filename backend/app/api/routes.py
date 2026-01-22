@@ -1,17 +1,14 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from numpy import vecdot
 from pydantic import BaseModel
 from typing import List
 from app.services.embedding_service import EmbeddingService
 from app.services.chromadb_service import ChromadbService
 from app.services.pinecone_service import PineconeService
-from app.models.vectordb import VectorDB
 
 router = APIRouter()
-# llm_service = LLMService()
-# rag_service = RagService()
 embedding_service = EmbeddingService()
-vectordb = ChromadbService()
+# vectordb = ChromadbService()
+vectordb = PineconeService()
 
 
 class ChatRequest(BaseModel):
