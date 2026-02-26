@@ -761,9 +761,39 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
     }
   };
 
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState({ current: 0, total: 0 });
+
   const deleteSelectedFiles = () => {
-    setFiles((prev) => prev.filter((f) => !selectedFiles.has(f.id)));
+    if (selectedFiles.size === 0) return;
+    setBulkDeleteProgress({ current: 0, total: selectedFiles.size });
+    setShowBulkDeleteDialog(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    setIsDeleting(true);
+    const ids = Array.from(selectedFiles);
+    let done = 0;
+
+    for (const fileId of ids) {
+      try {
+        const response = await apiFetch(`/api/v1/evidence/delete/${fileId}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          console.error(`증거 ${fileId} 삭제 실패: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error(`증거 ${fileId} 삭제 실패:`, error);
+      }
+      done++;
+      setBulkDeleteProgress({ current: done, total: ids.length });
+    }
+
+    await fetchEvidences();
     setSelectedFiles(new Set());
+    setIsDeleting(false);
+    setShowBulkDeleteDialog(false);
   };
 
   // 카테고리 목록 새로고침 (expanded 상태 보존)
@@ -1883,6 +1913,66 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
                 <Button
                   variant="destructive"
                   onClick={confirmDeleteFile}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      삭제 중...
+                    </>
+                  ) : (
+                    "삭제"
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Dialog */}
+      {showBulkDeleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="text-base text-destructive">증거 파일 일괄 삭제</CardTitle>
+              <CardDescription className="text-sm">
+                이 작업은 되돌릴 수 없습니다
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isDeleting ? (
+                <div className="space-y-3">
+                  <p className="text-sm">
+                    삭제 중... ({bulkDeleteProgress.current} / {bulkDeleteProgress.total})
+                  </p>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-destructive transition-all duration-300"
+                      style={{ width: `${bulkDeleteProgress.total > 0 ? (bulkDeleteProgress.current / bulkDeleteProgress.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">스토리지 및 DB에서 영구 삭제하고 있습니다...</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm">선택한 <strong>{bulkDeleteProgress.total}개</strong> 파일을 삭제하시겠습니까?</p>
+                  <p className="text-xs text-muted-foreground">
+                    ※ 스토리지에서도 영구적으로 삭제되며, 연결된 사건 매핑도 함께 삭제됩니다.
+                  </p>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowBulkDeleteDialog(false)}
+                  disabled={isDeleting}
+                >
+                  취소
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmBulkDelete}
                   disabled={isDeleting}
                 >
                   {isDeleting ? (

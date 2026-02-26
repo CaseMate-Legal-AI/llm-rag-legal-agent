@@ -110,7 +110,9 @@ import {
   UserX,
   Circle,
   RefreshCw,
+  FolderOpen,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { AgentLoadingOverlay, type AgentStep } from "@/components/ui/agent-loading-overlay";
 import { RelationshipEditor } from "@/components/legal/relationship-editor";
@@ -345,6 +347,13 @@ export function CaseDetailPage({
   const [isDragOver, setIsDragOver] = useState(false);
   const evidenceFileInputRef = useRef<HTMLInputElement>(null);
 
+  // 파일 관리에서 가져오기 모달 상태
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [allGlobalEvidence, setAllGlobalEvidence] = useState<{ evidence_id: number; file_name: string; file_type: string; created_at: string | null }[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [selectedImportIds, setSelectedImportIds] = useState<Set<number>>(new Set());
+  const [isLinking, setIsLinking] = useState(false);
+
   // 증거 파일 목록 가져오기
   const fetchEvidences = useCallback(async () => {
     if (!caseData?.id) return;
@@ -423,6 +432,48 @@ export function CaseDetailPage({
     } catch (error) {
       console.error('증거 연결 해제 실패:', error);
       alert('증거 연결 해제에 실패했습니다.');
+    }
+  };
+
+  // 파일 관리에서 가져오기 모달 열기 — 전체 증거 목록 로드
+  const openImportModal = async () => {
+    setIsImportModalOpen(true);
+    setSelectedImportIds(new Set());
+    setImportLoading(true);
+    try {
+      const response = await apiFetch('/api/v1/evidence/list');
+      if (response.ok) {
+        const data = await response.json();
+        setAllGlobalEvidence(data.files ?? []);
+      }
+    } catch (error) {
+      console.error('전체 증거 목록 조회 실패:', error);
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  // 선택된 증거들을 현재 사건에 연결
+  const linkSelectedEvidence = async () => {
+    if (!caseData?.id || selectedImportIds.size === 0) return;
+    setIsLinking(true);
+    try {
+      for (const evidenceId of selectedImportIds) {
+        const response = await apiFetch(
+          `/api/v1/evidence/${evidenceId}/link-case/${caseData.id}`,
+          { method: 'POST' }
+        );
+        if (!response.ok) {
+          console.error(`증거 ${evidenceId} 연결 실패`);
+        }
+      }
+      await fetchEvidences();
+      setIsImportModalOpen(false);
+    } catch (error) {
+      console.error('증거 연결 실패:', error);
+      alert('증거 연결에 실패했습니다.');
+    } finally {
+      setIsLinking(false);
     }
   };
 
@@ -2102,6 +2153,79 @@ export function CaseDetailPage({
                   <><Upload className="h-4 w-4" /> 클릭하거나 파일을 드래그하여 증거 추가</>
                 )}
               </div>
+
+              {/* 파일 관리에서 가져오기 버튼 */}
+              <div
+                onClick={openImportModal}
+                className="flex items-center justify-center gap-2 rounded-lg border-2 border-dashed py-4 text-sm transition-colors border-border/60 text-muted-foreground hover:border-primary/40 hover:bg-primary/5 cursor-pointer"
+              >
+                <FolderOpen className="h-4 w-4" /> 파일 관리 페이지에서 증거 추가
+              </div>
+
+              {/* 파일 관리에서 가져오기 모달 */}
+              <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+                <DialogContent className="max-w-lg max-h-[70vh] flex flex-col">
+                  <DialogHeader>
+                    <DialogTitle>파일 관리 페이지에서 증거 추가</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex-1 overflow-y-auto space-y-1 min-h-0 py-2">
+                    {importLoading ? (
+                      <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" /> 파일 목록 불러오는 중...
+                      </div>
+                    ) : (() => {
+                      const linkedIds = new Set(allEvidence.map(e => e.id));
+                      const available = allGlobalEvidence.filter(e => !linkedIds.has(String(e.evidence_id)));
+                      if (available.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-muted-foreground text-sm">
+                            연결 가능한 증거 파일이 없습니다.
+                          </div>
+                        );
+                      }
+                      return available.map((file) => (
+                        <label
+                          key={file.evidence_id}
+                          className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-secondary/40 cursor-pointer transition-colors"
+                        >
+                          <Checkbox
+                            checked={selectedImportIds.has(file.evidence_id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedImportIds(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(file.evidence_id);
+                                else next.delete(file.evidence_id);
+                                return next;
+                              });
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{file.file_name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {file.file_type || '파일'} · {file.created_at ? new Date(file.created_at).toLocaleDateString('ko-KR') : ''}
+                            </div>
+                          </div>
+                        </label>
+                      ));
+                    })()}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsImportModalOpen(false)}>
+                      취소
+                    </Button>
+                    <Button
+                      onClick={linkSelectedEvidence}
+                      disabled={selectedImportIds.size === 0 || isLinking}
+                    >
+                      {isLinking ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-1" /> 연결 중...</>
+                      ) : (
+                        <>연결하기 ({selectedImportIds.size})</>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
 
