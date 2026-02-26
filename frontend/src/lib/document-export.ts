@@ -226,7 +226,7 @@ export async function exportToDocx(title: string, content: string, editor?: Edit
   // html-to-docx가 Buffer(polyfill)를 반환할 수 있으므로 Blob으로 확실히 변환
   const blob = result instanceof Blob
     ? result
-    : new Blob([result], {
+    : new Blob([new Uint8Array(result)], {
         type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
