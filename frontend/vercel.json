@@ -6,6 +6,7 @@
   "installCommand": "npm ci",
   "regions": ["icn1"],
   "rewrites": [
+    { "source": "/api/:path*", "destination": "http://3.36.116.110/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
