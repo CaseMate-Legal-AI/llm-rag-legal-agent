@@ -40,9 +40,7 @@
 LangGraph 5-Node StateGraph 에이전트가 사용자 질문을 분석하고, 11개 도구를 자율 선택·조합하여 답변합니다.
 멀티홉 추론으로 "이 사건과 유사한 판례를 찾아서 비교 분석해줘"와 같은 복합 질의를 한 번에 처리합니다.
 
-<p align="center">
-  <img src="docs/images/guideline-demo.gif" alt="AI 어시스턴트 가이드라인" width="800" />
-</p>
+<!-- TODO: AI 법률 어시스턴트 데모 GIF 추가 예정 -->
 
 ### 2. AI 사건 분석 & 유사 판례 비교
 
@@ -264,9 +262,9 @@ npm run dev
 
 | 이름 | 역할 |
 |------|------|
-| **[dayforged](https://github.com/dayforged)** | AI 어시스턴트 (홈 에이전트), AI 사건 분석, 보안/안정성, 프론트엔드 UI/UX |
-| **[DaHee05](https://github.com/DaHee05)** | AI 어시스턴트 (홈 에이전트), 판례 검색/AI 비교 분석, 프론트엔드 UI/UX, AWS 배포 |
-| **[hdju](https://github.com/kiribati07)** | 타임라인, 인물관계도, VLM, 초안 작성 |
+| **[dayforged](https://github.com/dayforged)** | AI 어시스턴트 (홈 에이전트), AI 사건 분석, AI 초안 작성, 프론트엔드 UI/UX |
+| **[DaHee05](https://github.com/DaHee05)** | AI 어시스턴트 (홈 에이전트), 판례 검색/AI 비교 분석, AWS 배포, 프론트엔드 UI/UX |
+| **[hdju](https://github.com/kiribati07)** | 타임라인, 인물관계도, 증거 관리/분석 (OCR · STT · VLM) |
 
 ---
 
