@@ -1,143 +1,240 @@
-# CaseMate - AI 법률 사건 관리 플랫폼
+<div align="center">
 
-법률 사건의 등록부터 분석, 판례 검색, 증거 관리까지 AI가 지원하는 올인원 법률 지능 플랫폼입니다.
+# CaseMate
+
+### AI 기반 법률 사건 관리 플랫폼
+
+사건 분석부터 판례 검색, 증거 관리, 법률 문서 초안까지 — 하나의 AI 어시스턴트로 통합
+
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://typescriptlang.org)
+[![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://langchain-ai.github.io/langgraph/)
+[![OpenAI](https://img.shields.io/badge/GPT--4o-412991?style=for-the-badge&logo=openai&logoColor=white)](https://openai.com)
+[![Qdrant](https://img.shields.io/badge/Qdrant-DC382D?style=for-the-badge&logo=qdrant&logoColor=white)](https://qdrant.tech)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+
+</div>
+
+<br/>
+
+<p align="center">
+  <img src="docs/images/guideline-demo.gif" alt="CaseMate AI 어시스턴트 데모" width="800" />
+</p>
+
+---
+
+## 프로젝트 소개
+
+법률 실무에서 사건 분석, 판례 조사, 증거 정리는 방대한 시간과 노력이 필요한 작업입니다.
+**CaseMate**는 LangGraph 기반 AI 에이전트가 11개 도구를 자율적으로 조합하여 법률 업무를 지원하는 통합 플랫폼입니다.
+하이브리드 RAG(Dense + Sparse BM25)로 30만+ 판례를 검색하고, 멀티홉 추론으로 복합 질의를 처리하며, SSE 실시간 스트리밍으로 도구 실행 과정을 투명하게 보여줍니다.
+
+---
 
 ## 핵심 기능
 
-### AI 어시스턴트 (홈 에이전트)
-- **자연어 대화형 법률 AI** — "유사 판례 찾아줘", "사건 분석해줘" 등 자연어로 요청
-- **LangGraph 기반 멀티홉 추론** — 5-Node StateGraph + 11개 도구, Router → Agent → Tools → Generator 파이프라인
-- **SSE 실시간 스트리밍** — 도구 실행 상태, 중간 결과, 최종 답변을 실시간 전송
-- **Hallucination 방지** — 도구 결과에 없는 정보 생성 금지, 출처 인용 필수
-- **후속 질문 추천** — 대화 맥락에 맞는 자연스러운 다음 질문 자동 생성
+### 1. AI 법률 어시스턴트
 
-### 사건 관리
-- 사건 등록/수정/삭제 (CRUD)
-- **AI 사건 분석** — 배경, 사실관계, 쟁점, 범죄유형 자동 추출
-- **타임라인 자동 생성** — 사건 개요 + 증거에서 시간순 이벤트 추출
-- **인물 관계도 자동 생성** — 사건 내 등장 인물 및 관계 추출
+LangGraph 5-Node StateGraph 에이전트가 사용자 질문을 분석하고, 11개 도구를 자율 선택·조합하여 답변합니다.
+멀티홉 추론으로 "이 사건과 유사한 판례를 찾아서 비교 분석해줘"와 같은 복합 질의를 한 번에 처리합니다.
 
-### 판례 검색 및 분석
-- **하이브리드 검색** — Qdrant 벡터 DB 기반 (의미 검색 + 키워드 BM25)
-- **KURE 임베딩** — 한국어 법률 특화 임베딩 모델 (HuggingFace API)
-- **AI 판례 요약** — 결과 요약, 사실관계, 법리 분석, 실무 포인트 섹션별 정리
-- **판례 비교 분석** — 현재 사건과 유사 판례 간 유사점/차이점/전략적 시사점
-- **유사 판례 캐싱** — 분석 결과 DB 저장, 재요청 시 LLM 호출 스킵
-- **판례 즐겨찾기** — 배치 메타데이터 조회로 성능 최적화
+<!-- TODO: AI 법률 어시스턴트 데모 GIF 추가 예정 -->
 
-### 법령 검색
-- **정확한 조문 조회** — "형법 제307조" → DB 조회 + API Fallback
-- **벡터 검색** — 키워드 기반 관련 법령 검색
-- **RAG 통합 검색** — 판례 + 법령 병렬 검색
+### 2. AI 사건 분석 & 유사 판례 비교
 
-### 증거 관리
-- **파일 업로드** — Supabase Storage 통합 (이미지, PDF, 음성, 영상)
-- **자동 텍스트 추출** — 이미지(EasyOCR → Vision API), PDF(PyMuPDF), 음성(Whisper STT)
-- **AI 법적 분석** — 사건 맥락 기반 증거 요약, 법적 관련성, 위험도 평가
-- **증거 네비게이션** — 페이지 전환 없이 이전/다음 증거 즉시 전환
-- **문서 유형 자동 분류** — 카카오톡, 계약서, 영수증, 법원문서 등 자동 분류
+사건 설명서에서 배경·사실관계·쟁점을 자동 추출하고, 유사 판례를 검색하여 쟁점별 비교 분석 보고서를 생성합니다.
+분석 결과는 캐싱되며, 원문 수정 시 `description_hash` 기반으로 stale 감지하여 데이터 일관성을 유지합니다.
 
-### 인증 및 보안
-- JWT 기반 인증 (회원가입/로그인)
-- 법무법인(Firm) 기반 멀티테넌트 데이터 격리
-- Supabase Signed URL (60초 제한) 파일 접근 제어
+<p align="center">
+  <img src="docs/images/case-analysis-demo.gif" alt="AI 사건 분석 데모" width="800" />
+</p>
+
+### 3. 판례 검색 (하이브리드 RAG)
+
+Qdrant 하이브리드 검색(Dense + Sparse BM25)과 RRF(Reciprocal Rank Fusion) 랭킹으로 30만+ 판례를 검색합니다.
+KURE 한국어 법률 특화 임베딩 + 동의어 확장 + 키워드 부스팅으로 검색 정확도를 높였습니다.
+
+<p align="center">
+  <img src="docs/images/precedent-search-demo.gif" alt="판례 검색 데모" width="800" />
+</p>
+
+### 4. 사건 관리
+
+사건 등록·수정, 증거 업로드(이미지 OCR / 음성 STT / PDF 텍스트 추출), 타임라인·인물관계도 생성까지 사건의 전 과정을 관리합니다.
+
+<p align="center">
+  <img src="docs/images/case-management-demo.gif" alt="사건 관리 데모" width="800" />
+</p>
+
+### 5. AI 법률 문서 초안 작성
+
+사건 분석 결과와 판례를 기반으로 법률 문서 초안을 자동 생성합니다.
+
+<p align="center">
+  <img src="docs/images/document-draft-demo.gif" alt="AI 초안 작성 데모" width="800" />
+</p>
+
+---
+
+## 시스템 아키텍처
+
+```mermaid
+graph TB
+    subgraph Frontend["Frontend (React 19 + TypeScript)"]
+        UI[UI Components]
+        SSE_Client[SSE Client]
+        ChatCtx[ChatContext 전역 상태]
+    end
+
+    subgraph Backend["Backend (FastAPI)"]
+        API[REST API + SSE Streaming]
+        Agent[LangGraph Agent]
+        Services[Service Layer]
+    end
+
+    subgraph AI["AI / LLM"]
+        GPT4o[GPT-4o Generator]
+        GPT4oMini[GPT-4o-mini Router & Agent]
+        Whisper[Whisper STT]
+        Vision[Vision API]
+        OCR[EasyOCR]
+    end
+
+    subgraph Storage["Data Layer"]
+        Supabase[(Supabase PostgreSQL)]
+        SupaStorage[Supabase Storage]
+        Qdrant[(Qdrant Vector DB)]
+    end
+
+    subgraph Embedding["Embedding"]
+        KURE[KURE v1 한국어 법률]
+        BM25[FastEmbed BM25]
+    end
+
+    UI --> SSE_Client
+    SSE_Client -->|"SSE (7 event types)"| API
+    ChatCtx --> UI
+    API --> Agent
+    Agent -->|11 Tools| Services
+    Services --> GPT4o
+    Services --> GPT4oMini
+    Services --> Whisper
+    Services --> Vision
+    Services --> OCR
+    Services --> Supabase
+    Services --> SupaStorage
+    Services --> Qdrant
+    Qdrant --> KURE
+    Qdrant --> BM25
+```
+
+### LangGraph 에이전트 그래프
+
+```mermaid
+graph LR
+    START((START)) --> Router
+
+    Router -->|general| Generator
+    Router -->|simple / complex| Agent
+
+    Agent -->|tool_calls| Tools
+    Tools -->|멀티홉 루프| Agent
+    Agent -->|답변 완료| Generator
+    Agent -->|simple 직접 응답| END((END))
+
+    Generator --> END
+
+    style Router fill:#4A90D9,color:#fff
+    style Agent fill:#7B68EE,color:#fff
+    style Tools fill:#F5A623,color:#fff
+    style Generator fill:#50C878,color:#fff
+```
+
+| 노드 | 모델 | 역할 |
+|------|------|------|
+| **Router** | GPT-4o-mini | 질문 유형 분류 (general / simple / complex) |
+| **Agent** | GPT-4o-mini | 도구 선택·실행, ReAct 루프 |
+| **Tools** | — | 11개 도구 실행 (LangGraph ToolNode) |
+| **Generator** | GPT-4o | 최종 답변 생성, 인용 검증 (Self-RAG) |
+
+---
 
 ## 기술 스택
 
-| 영역 | 기술 |
-|------|------|
-| **Backend** | FastAPI, Python 3.11+, SQLAlchemy, PostgreSQL (Supabase) |
-| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, Radix UI |
-| **AI/LLM** | OpenAI GPT-4o-mini, LangGraph, LangChain |
-| **벡터 DB** | Qdrant (하이브리드 검색: Dense + Sparse) |
-| **임베딩** | KURE (HuggingFace Inference API), FastEmbed (BM25) |
-| **스토리지** | Supabase Storage |
-| **실시간** | Server-Sent Events (SSE) |
+| 영역 | 기술 | 선정 사유 |
+|------|------|----------|
+| **Backend** | FastAPI, Python 3.11+, SQLAlchemy | 비동기 SSE 스트리밍, 타입 안전성 |
+| **Frontend** | React 19, TypeScript, Vite, Tailwind CSS, Radix UI | 최신 React 생태계, 접근성(a11y) |
+| **AI Agent** | LangGraph, LangChain | StateGraph 기반 멀티홉 추론, 도구 오케스트레이션 |
+| **LLM** | GPT-4o (Generator), GPT-4o-mini (Router/Agent) | 비용 최적화: 라우팅은 경량 모델, 생성은 고품질 모델 |
+| **Vector DB** | Qdrant (하이브리드: Dense + Sparse) | RRF 랭킹, Prefetch 최적화 |
+| **임베딩** | KURE v1 (한국어 법률), FastEmbed BM25 | 한국어 법률 도메인 특화 |
+| **DB** | PostgreSQL (Supabase) | 관리형 DB + Row Level Security |
+| **스토리지** | Supabase Storage | Signed URL 기반 증거 파일 관리 |
+| **실시간** | Server-Sent Events (SSE) | 7종 이벤트로 도구 실행 과정 투명 공개 |
+| **증거 처리** | EasyOCR, Whisper STT, PyMuPDF, Vision API | 이미지/음성/PDF 멀티모달 증거 분석 |
 
-## 프로젝트 구조
+---
+
+<details>
+<summary><b>프로젝트 구조</b></summary>
 
 ```
-CaseMate/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py                # FastAPI 앱 진입점
-│   │   ├── config.py              # 임베딩/모델 설정
-│   │   ├── api/v1/                # API 엔드포인트
-│   │   │   ├── auth_api.py        # 인증 (회원가입/로그인)
-│   │   │   ├── case_api.py        # 사건 CRUD + AI 분석
-│   │   │   ├── evidence_api.py    # 증거 업로드/관리/분석
-│   │   │   ├── search_api.py      # 판례/법령 검색
-│   │   │   ├── agent_api.py       # AI 어시스턴트 (SSE 스트리밍)
-│   │   │   ├── timeline_api.py    # 타임라인 CRUD
-│   │   │   └── relationship_api.py # 인물 관계 CRUD
-│   │   ├── home_agent/            # AI 어시스턴트 엔진
-│   │   │   ├── graph.py           # LangGraph StateGraph 정의
-│   │   │   ├── nodes.py           # 노드 함수 (router, agent, tools, generator)
-│   │   │   ├── tools.py           # 11개 도구 정의
-│   │   │   ├── prompts.py         # 시스템 프롬프트
-│   │   │   └── checkpointer.py    # 대화 상태 관리
-│   │   ├── models/                # SQLAlchemy 모델
-│   │   ├── services/              # 비즈니스 로직
-│   │   └── prompts/               # LLM 프롬프트 템플릿
-│   ├── scripts/                   # 데이터 수집 스크립트
-│   ├── tool/                      # DB, 보안, API 클라이언트
-│   ├── requirements.txt
-│   └── .env
+│   │   ├── api/v1/           # REST API 엔드포인트
+│   │   ├── home_agent/       # LangGraph 에이전트
+│   │   │   ├── graph.py      #   StateGraph 정의
+│   │   │   ├── nodes.py      #   Router / Agent / Generator 노드
+│   │   │   ├── tools.py      #   11개 도구 정의
+│   │   │   └── prompts.py    #   시스템 프롬프트
+│   │   ├── models/           # SQLAlchemy ORM 모델
+│   │   ├── services/         # 비즈니스 로직
+│   │   │   ├── precedent_search_service.py  # 하이브리드 RAG
+│   │   │   └── rag_service.py               # 통합 RAG
+│   │   └── prompts/          # LLM 프롬프트 템플릿
+│   ├── data/laws/            # 법령 데이터
+│   └── scripts/              # 데이터 적재 스크립트
 ├── frontend/
 │   ├── src/
-│   │   ├── App.tsx                # 라우팅 설정
-│   │   ├── contexts/              # React Context (채팅, 검색)
-│   │   ├── hooks/                 # Custom Hooks (useAgentSSE)
-│   │   ├── components/legal/
-│   │   │   ├── pages/             # 페이지 컴포넌트
-│   │   │   │   ├── home-page.tsx          # 홈 (AI 어시스턴트)
-│   │   │   │   ├── cases-page.tsx         # 사건 목록
-│   │   │   │   ├── case-detail-page.tsx   # 사건 상세
-│   │   │   │   ├── new-case-page.tsx      # 새 사건 등록
-│   │   │   │   ├── precedents-page.tsx    # 판례 검색
-│   │   │   │   ├── precedent-detail-page.tsx # 판례 상세
-│   │   │   │   ├── evidence-detail-page.tsx  # 증거 상세
-│   │   │   │   └── evidence-upload-page.tsx  # 증거 업로드
-│   │   │   ├── home-agent/        # AI 어시스턴트 UI
-│   │   │   │   ├── agent-results-panel.tsx   # 도구 결과 패널
-│   │   │   │   └── tool-renderers/           # 도구별 렌더러
-│   │   │   ├── sidebar.tsx        # 사이드바
-│   │   │   └── main-layout.tsx    # 메인 레이아웃
-│   │   └── lib/                   # 유틸리티
-│   ├── package.json
-│   └── vite.config.ts
-└── README.md
+│   │   ├── components/       # React 컴포넌트
+│   │   ├── contexts/         # ChatContext 등 전역 상태
+│   │   ├── hooks/            # useAgentSSE 등 커스텀 훅
+│   │   └── lib/              # API 클라이언트, 유틸리티
+│   └── public/
+├── nginx/                    # Nginx 설정
+└── docs/images/              # 데모 GIF
 ```
+
+</details>
+
+---
 
 ## 시작하기
 
-### 1. 백엔드
+### 사전 요구사항
+
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL (또는 [Supabase](https://supabase.com) 프로젝트)
+- [Qdrant](https://qdrant.tech) 인스턴스
+
+### Backend
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate    # Windows: venv\Scripts\activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
 
-`.env` 파일 설정:
-```bash
-OPENAI_API_KEY=your_key
-DATABASE_URL=postgresql://...
-QDRANT_URL=https://...
-QDRANT_API_KEY=your_key
-SUPABASE_URL=https://...
-SUPABASE_ANON_KEY=your_key
-SUPABASE_SERVICE_ROLE_KEY=your_key
-JWT_SECRET=your_secret
-HF_API_TOKEN=your_token          # KURE 임베딩용
-```
+# .env 파일 설정
+cp .env.example .env  # 아래 환경 변수 참조
 
-```bash
 uvicorn app.main:app --reload --port 8000
 ```
 
-### 2. 프론트엔드
+### Frontend
 
 ```bash
 cd frontend
@@ -145,57 +242,31 @@ npm install
 npm run dev
 ```
 
-브라우저에서 `http://localhost:3000` 접속
+### 환경 변수
 
-## AI 어시스턴트 도구 목록
+| 변수명 | 설명 |
+|--------|------|
+| `OPENAI_API_KEY` | OpenAI API 키 |
+| `DATABASE_URL` | PostgreSQL 연결 문자열 |
+| `QDRANT_URL` | Qdrant 서버 URL |
+| `QDRANT_API_KEY` | Qdrant API 키 |
+| `SUPABASE_URL` | Supabase 프로젝트 URL |
+| `SUPABASE_ANON_KEY` | Supabase Anonymous 키 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Service Role 키 |
+| `JWT_SECRET` | JWT 토큰 서명 키 |
+| `HF_API_TOKEN` | HuggingFace API 토큰 (KURE 임베딩) |
 
-| 도구 | 설명 |
-|------|------|
-| `list_cases` | 등록된 사건 목록 조회 |
-| `analyze_case` | 사건 AI 분석 (배경/사실/쟁점) |
-| `generate_timeline` | 타임라인 자동 생성 |
-| `generate_relationship` | 인물 관계도 생성 |
-| `search_precedents` | 판례 키워드 검색 |
-| `summarize_precedent` | 판례 요약 (DB 직접 조회) |
-| `compare_precedent` | 판례 비교 분석 (캐싱 지원) |
-| `search_laws` | 법령 조문 검색 (DB + API Fallback) |
-| `get_case_evidence` | 증거 현황 조회 |
-| `get_case_similar_precedents` | 저장된 유사 판례 조회 |
-| `rag_search` | 판례 + 법령 병렬 RAG 검색 |
-
-## 주요 API 엔드포인트
-
-```
-POST /api/v1/auth/signup          # 회원가입
-POST /api/v1/auth/login           # 로그인
-GET  /api/v1/auth/me              # 현재 사용자
-
-GET  /api/v1/cases                # 사건 목록
-POST /api/v1/cases                # 사건 등록
-POST /api/v1/cases/:id/analyze    # 사건 AI 분석
-
-POST /api/v1/agent/chat           # AI 어시스턴트 (SSE)
-
-GET  /api/v1/search/cases         # 판례 검색
-POST /api/v1/search/summarize     # 판례 요약
-POST /api/v1/search/cases/compare # 판례 비교
-
-POST /api/v1/evidence/upload      # 증거 업로드
-POST /api/v1/evidence/:id/analyze # 증거 AI 분석
-
-GET  /api/v1/timeline/:case_id    # 타임라인 조회
-GET  /api/v1/relationships/:case_id # 인물 관계 조회
-```
-
-API 상세 문서: `http://localhost:8000/docs`
+---
 
 ## 팀
 
 | 이름 | 역할 |
 |------|------|
-| dayforged | AI 어시스턴트 (홈 에이전트), AI 사건 분석, AI 초안 작성, 프론트엔드 UI/UX |
-| DaHee05 | AI 어시스턴트 (홈 에이전트), 판례 검색/AI 비교 분석, AWS 배포, 프론트엔드 UI/UX |
-| hdju (kiribati) | 타임라인, 인물관계도, 증거 관리/분석 (OCR · STT · VLM) |
+| **[dayforged](https://github.com/dayforged)** | AI 어시스턴트 (홈 에이전트), AI 사건 분석, AI 초안 작성, 프론트엔드 UI/UX |
+| **[DaHee05](https://github.com/DaHee05)** | AI 어시스턴트 (홈 에이전트), 판례 검색/AI 비교 분석, AWS 배포, 프론트엔드 UI/UX |
+| **[hdju](https://github.com/kiribati07)** | 타임라인, 인물관계도, 증거 관리/분석 (OCR · STT · VLM) |
+
+---
 
 ## 라이선스
 
