@@ -5,6 +5,9 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "regions": ["icn1"],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
