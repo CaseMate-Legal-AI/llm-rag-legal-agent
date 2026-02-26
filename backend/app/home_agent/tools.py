@@ -543,7 +543,8 @@ def create_tools(user_id: int, law_firm_id: int):
             with SessionLocal() as db:
                 rows = db.execute(sql_text("""
                     SELECT
-                        e.id, e.file_name, e.file_type, e.doc_type, e.starred,
+                        e.id, e.file_name, e.file_type, e.file_path,
+                        e.doc_type, e.starred,
                         e.created_at,
                         cem.evidence_date, cem.description,
                         ea.summary AS analysis_summary,
@@ -564,6 +565,25 @@ def create_tools(user_id: int, law_firm_id: int):
                         [],
                     )
 
+                # Signed URL 개별 생성
+                from app.api.v1.evidence_api import get_supabase
+                file_urls = {}
+                try:
+                    storage = get_supabase().storage.from_("Evidences")
+                    for r in rows:
+                        if not r.file_path:
+                            logger.warning(f"증거 file_path 없음: id={r.id}")
+                            continue
+                        try:
+                            resp = storage.create_signed_url(r.file_path, 300)
+                            logger.info(f"Signed URL 응답: id={r.id}, path={r.file_path}, keys={list(resp.keys()) if resp else 'None'}")
+                            if resp and resp.get("signedURL"):
+                                file_urls[r.file_path] = resp["signedURL"]
+                        except Exception as e:
+                            logger.error(f"Signed URL 생성 실패: id={r.id}, path={r.file_path}, error={e}")
+                except Exception as e:
+                    logger.error(f"Supabase 연결 실패: {e}", exc_info=True)
+
                 data = []
                 lines = [f"## 증거 현황 ({len(rows)}건)\n"]
                 for r in rows:
@@ -579,6 +599,7 @@ def create_tools(user_id: int, law_firm_id: int):
                         "analysis_summary": r.analysis_summary,
                         "legal_relevance": r.legal_relevance,
                         "risk_level": r.risk_level,
+                        "signed_url": file_urls.get(r.file_path, "") if r.file_path else "",
                     }
                     data.append(item)
 

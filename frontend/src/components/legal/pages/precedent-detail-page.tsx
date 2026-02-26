@@ -117,6 +117,10 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
 
   // 판례 상세 조회 (캐시 우선)
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  useEffect(() => {
     const fetchCaseDetail = async () => {
       if (!id) return;
 
@@ -421,7 +425,7 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 120px)' }}>
-        <video src="/assets/loading-card.mp4" autoPlay loop muted playsInline className="h-20 w-20" style={{ mixBlendMode: 'multiply', opacity: 0.3 }} />
+        <video src="/assets/loading-card.mp4" autoPlay loop muted playsInline className="h-28 w-28" style={{ mixBlendMode: 'multiply', opacity: 0.3 }} />
       </div>
     );
   }

@@ -1,10 +1,9 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, Star, AlertTriangle, CheckCircle, ExternalLink,
-  ChevronDown, ChevronUp, Loader2, ImageIcon, FileAudio, FileVideo,
+  ChevronDown, ChevronUp, ImageIcon, FileAudio, FileVideo,
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
 
 interface EvidenceItem {
   id: number;
@@ -18,16 +17,12 @@ interface EvidenceItem {
   analysis_summary: string | null;
   legal_relevance: string | null;
   risk_level: string | null;
+  signed_url: string | null;
 }
 
 interface Props {
   data: Record<string, unknown>[];
   caseId?: number;
-}
-
-interface CachedUrl {
-  url: string;
-  fetchedAt: number;
 }
 
 const RISK_COLORS: Record<string, string> = {
@@ -36,59 +31,23 @@ const RISK_COLORS: Record<string, string> = {
   low: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
 };
 
-const URL_CACHE_TTL = 50_000; // 50초 (서명 URL 만료 60초 전 재발급)
-
 export function EvidenceListRenderer({ data, caseId }: Props) {
   const navigate = useNavigate();
   const items = data as unknown as EvidenceItem[];
 
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-  const [urlCache, setUrlCache] = useState<Record<number, CachedUrl>>({});
-  const [loadingIds, setLoadingIds] = useState<Set<number>>(new Set());
-  const [errorIds, setErrorIds] = useState<Set<number>>(new Set());
 
-  const fetchSignedUrl = useCallback(async (evidenceId: number) => {
-    // 캐시 체크 (50초 TTL)
-    const cached = urlCache[evidenceId];
-    if (cached && Date.now() - cached.fetchedAt < URL_CACHE_TTL) return;
-
-    setLoadingIds((prev) => new Set(prev).add(evidenceId));
-    setErrorIds((prev) => {
-      const next = new Set(prev);
-      next.delete(evidenceId);
-      return next;
-    });
-
-    try {
-      const res = await apiFetch(`/api/v1/evidence/${evidenceId}/url`);
-      const data = await res.json();
-      setUrlCache((prev) => ({
-        ...prev,
-        [evidenceId]: { url: data.signed_url, fetchedAt: Date.now() },
-      }));
-    } catch {
-      setErrorIds((prev) => new Set(prev).add(evidenceId));
-    } finally {
-      setLoadingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(evidenceId);
-        return next;
-      });
-    }
-  }, [urlCache]);
-
-  const toggleExpand = useCallback((item: EvidenceItem) => {
+  const toggleExpand = (id: number) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(item.id)) {
-        next.delete(item.id);
+      if (next.has(id)) {
+        next.delete(id);
       } else {
-        next.add(item.id);
-        fetchSignedUrl(item.id);
+        next.add(id);
       }
       return next;
     });
-  }, [fetchSignedUrl]);
+  };
 
   if (!items || items.length === 0) {
     return <p className="text-sm text-muted-foreground">연결된 증거가 없습니다.</p>;
@@ -107,9 +66,6 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
       )}
       {items.map((item) => {
         const isExpanded = expandedIds.has(item.id);
-        const isLoading = loadingIds.has(item.id);
-        const hasError = errorIds.has(item.id);
-        const cached = urlCache[item.id];
 
         return (
           <div
@@ -129,7 +85,7 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
                 </span>
               )}
               <button
-                onClick={() => toggleExpand(item)}
+                onClick={() => toggleExpand(item.id)}
                 className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center hover:bg-muted/60 transition-colors"
               >
                 {isExpanded
@@ -168,20 +124,12 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
             {/* 확장 영역: 인라인 미리보기 */}
             {isExpanded && (
               <div className="pt-2 border-t border-border/30">
-                {isLoading && (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-
-                {hasError && (
-                  <p className="text-xs text-destructive text-center py-2">
-                    미리보기를 불러올 수 없습니다.
+                {item.signed_url ? (
+                  <FilePreview url={item.signed_url} fileType={item.file_type} fileName={item.file_name} />
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-2">
+                    미리보기를 사용할 수 없습니다.
                   </p>
-                )}
-
-                {!isLoading && !hasError && cached && (
-                  <FilePreview url={cached.url} fileType={item.file_type} fileName={item.file_name} />
                 )}
               </div>
             )}
@@ -193,13 +141,23 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
 }
 
 function FilePreview({ url, fileType, fileName }: { url: string; fileType: string; fileName: string }) {
+  const [imgError, setImgError] = useState(false);
+
   if (fileType.startsWith("image/")) {
+    if (imgError) {
+      return (
+        <div className="flex items-center justify-center py-4 text-xs text-muted-foreground">
+          <ImageIcon className="h-4 w-4 mr-1.5" />
+          이미지를 불러올 수 없습니다
+        </div>
+      );
+    }
     return (
       <img
         src={url}
         alt={fileName}
         className="max-h-48 rounded-lg object-contain w-full bg-muted/20"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+        onError={() => setImgError(true)}
       />
     );
   }

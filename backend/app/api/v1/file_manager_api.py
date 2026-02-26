@@ -77,7 +77,10 @@ async def file_manager_init(
     # 3. 사건 폴더 (사건 목록)
     cases_raw = (
         db.query(models.Case)
-        .filter(models.Case.law_firm_id == firm_id)
+        .filter(
+            models.Case.law_firm_id == firm_id,
+            models.Case.availability == "o",
+        )
         .order_by(models.Case.created_at.desc())
         .all()
     )
