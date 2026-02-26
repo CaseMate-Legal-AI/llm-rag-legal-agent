@@ -22,7 +22,6 @@ interface OutletContextType {
 
 // ── Constants ──
 const hintPhrases = [
-  "의뢰인 진술과 카톡 내용을 토대로 사실 관계만 정리해줘...",
   "최근 사건 손해배상 청구 소장 초안을 작성해줘...",
   "오늘 상담한 사건과 유사한 판례를 찾아서 비교해줘...",
 ];
