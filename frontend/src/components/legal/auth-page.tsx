@@ -92,7 +92,14 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || "회원가입에 실패했습니다");
+          // Pydantic 422 에러는 detail이 배열 형태
+          let errorMsg = "회원가입에 실패했습니다";
+          if (Array.isArray(data.detail)) {
+            errorMsg = data.detail.map((e: { msg: string }) => e.msg).join(", ");
+          } else if (typeof data.detail === "string") {
+            errorMsg = data.detail;
+          }
+          throw new Error(errorMsg);
         }
 
         localStorage.setItem("access_token", data.access_token);

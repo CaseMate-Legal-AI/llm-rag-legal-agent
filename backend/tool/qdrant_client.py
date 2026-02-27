@@ -27,7 +27,8 @@ def get_qdrant_client():
             if _qdrant_client is None:
                 host = os.getenv("QDRANT_HOST", "localhost")
                 port = int(os.getenv("QDRANT_PORT", "6333"))
-                _qdrant_client = QdrantClient(host=host, port=port)
+                timeout = int(os.getenv("QDRANT_TIMEOUT", "60"))  # 기본 60초                                                                   
+                _qdrant_client = QdrantClient(host=host, port=port, timeout=timeout) 
     return _qdrant_client
 
 

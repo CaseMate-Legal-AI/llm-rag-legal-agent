@@ -23,6 +23,7 @@ from app.home_agent.prompts import (
     GENERAL_SYSTEM_PROMPT,
 )
 from app.config import AgentConfig
+from app.middleware.llm_logger import log_llm_response
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +88,28 @@ def router_node(state: dict) -> dict:
         SystemMessage(content=ROUTER_SYSTEM_PROMPT),
         last_human,
     ])
+    # structured output은 usage 정보 없음 - 수동 추정 (입력 ~200, 출력 ~10)
+    log_llm_response(None, model=AgentConfig.ROUTER_MODEL, purpose="router")
     route = result.route
     logger.info(f"[Router] 분류 결과: {route}")
     return {"route": route}
+
+
+def general_node(state: dict) -> dict:
+    """일반 대화 직접 응답 (gpt-4o-mini 1회)"""
+    messages = state["messages"]
+    last_human = next(
+        (m for m in reversed(messages) if isinstance(m, HumanMessage)), None
+    )
+
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, request_timeout=15)
+    response = llm.invoke([
+        SystemMessage(content=GENERAL_SYSTEM_PROMPT),
+        last_human,
+    ])
+    log_llm_response(response, model="gpt-4o-mini", purpose="general")
+    logger.info("[General] 일반 대화 응답 완료")
+    return {"messages": [response]}
 
 
 def agent_node(state: dict, tools) -> dict:
@@ -101,6 +121,7 @@ def agent_node(state: dict, tools) -> dict:
 
     llm = _get_agent_llm(tools)
     response = llm.invoke([SystemMessage(content=AGENT_SYSTEM_PROMPT)] + llm_messages)
+    log_llm_response(response, model=AgentConfig.AGENT_MODEL, purpose="agent")
 
     # Guard: per-case 도구 N×1 반복 호출 차단
     if hasattr(response, "tool_calls") and response.tool_calls:
@@ -125,6 +146,7 @@ def generator_node(state: dict) -> dict:
 
     llm = _get_generator_llm()
     response = llm.invoke([SystemMessage(content=system)] + llm_messages)
+    log_llm_response(response, model=AgentConfig.GENERATOR_MODEL, purpose="generator")
 
     # Self-RAG: 인용 검증 (도구 결과가 있을 때만)
     tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
@@ -145,7 +167,7 @@ def route_after_router(state: dict) -> str:
     """Router 판정 후 분기"""
     route = state.get("route", "general")
     if route == "general":
-        return "generator"
+        return "general"
     return "agent"
 
 
@@ -442,7 +464,7 @@ def _extract_cited_sources(answer: str, tool_messages: list[ToolMessage]) -> lis
 
 
 def _verify_citations(response: AIMessage, tool_messages: list[ToolMessage]) -> AIMessage:
-    """Self-RAG: 답변의 법조문/판례번호가 도구 결과에 있는지 검증"""
+    """Self-RAG: 답변의 법조문/판례번호가 도구 결과에 있는지 검증 및 제거"""
     content = response.content
     if not content:
         return response
@@ -450,22 +472,76 @@ def _verify_citations(response: AIMessage, tool_messages: list[ToolMessage]) -> 
     # 도구 결과 텍스트 합치기
     tool_text = " ".join(m.content for m in tool_messages if m.content)
 
-    # 판례번호 검증
+    removed_citations = []
+
+    # 판례번호 검증 및 제거
     cited_cases = _CASE_NUMBER_RE.findall(content)
     for case_num in cited_cases:
         if case_num not in tool_text:
-            content = content.replace(case_num, f"{case_num}[미확인]")
+            # 판례번호가 포함된 문장/구절 제거 패턴들
+            patterns = [
+                rf'[^.]*{re.escape(case_num)}[^.]*[., ]',  # 문장 단위
+                rf'\([^)]*{re.escape(case_num)}[^)]*\)',   # 괄호 안
+                rf'{re.escape(case_num)}',                  # 번호 자체
+            ]
+            for pattern in patterns:
+                if re.search(pattern, content):
+                    content = re.sub(pattern, '', content)
+                    break
+            removed_citations.append(f"판례 {case_num}")
 
-    # 법조문 검증
+    # 법조문 검증 및 제거
     cited_laws = _LAW_ARTICLE_RE.findall(content)
     for law_name, article_num in cited_laws:
         full = f"{law_name} 제{article_num}조"
         # 법령명과 조문번호가 도구 결과에 있는지 확인
         if law_name not in tool_text or f"제{article_num}조" not in tool_text:
-            content = content.replace(full, f"{full}[미확인]")
+            patterns = [
+                rf'[^.]*{re.escape(full)}[^.]*[., ]',
+                rf'\([^)]*{re.escape(full)}[^)]*\)',
+                rf'{re.escape(full)}',
+            ]
+            for pattern in patterns:
+                if re.search(pattern, content):
+                    content = re.sub(pattern, '', content)
+                    break
+            removed_citations.append(full)
 
-    if content != response.content:
-        logger.info("[Self-RAG] 미확인 인용 발견, 태그 추가")
-        return AIMessage(content=content)
+    # 출처 라인에서 미확인 인용 제거
+    source_line_match = re.search(r'(📚\s*출처[:\s]*)(.*)', content)
+    if source_line_match and removed_citations:
+        prefix = source_line_match.group(1)
+        sources = source_line_match.group(2)
+
+        # 미확인 판례번호 제거
+        for case_num in cited_cases:
+            if case_num not in tool_text:
+                # "대법원 2007도8155" 또는 "2007도8155" 형태 제거
+                sources = re.sub(rf',?\s*대법원\s*{re.escape(case_num)}', '', sources)
+                sources = re.sub(rf',?\s*{re.escape(case_num)}', '', sources)
+
+        # 미확인 법조문 제거
+        for law_name, article_num in cited_laws:
+            if law_name not in tool_text or f"제{article_num}조" not in tool_text:
+                full = f"{law_name} 제{article_num}조"
+                sources = re.sub(rf',?\s*{re.escape(full)}', '', sources)
+
+        # 정리: 앞뒤 쉼표, 공백
+        sources = re.sub(r'^[\s,]+|[\s,]+$', '', sources)
+        sources = re.sub(r',\s*,', ',', sources)
+
+        # 출처가 비었으면 출처 라인 전체 제거, 아니면 교체
+        if sources.strip():
+            content = content.replace(source_line_match.group(0), f"{prefix}{sources}")
+        else:
+            content = content.replace(source_line_match.group(0), '')
+
+    # 정리: 연속 공백, 빈 줄 제거
+    content = re.sub(r' +', ' ', content)
+    content = re.sub(r'\n\s*\n', '\n\n', content)
+
+    if removed_citations:
+        logger.warning(f"[Self-RAG] 미확인 인용 제거: {removed_citations}")
+        return AIMessage(content=content.strip())
 
     return response

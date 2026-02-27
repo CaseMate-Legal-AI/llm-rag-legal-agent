@@ -40,3 +40,6 @@
   langchain-openai>=0.3.0                                                                                                                                                                                    
   langgraph-checkpoint-sqlite>=2.0.0                                                                                                                                                                         
   aiosqlite>=0.20.0
+  
+  # 에러 추적
+  sentry-sdk>=2.0.0
