@@ -7,9 +7,10 @@ from contextvars import ContextVar
 
 logger = logging.getLogger(__name__)
 
-# 현재 요청의 api_log_id, user_id를 저장하는 컨텍스트 변수
+# 현재 요청의 api_log_id, user_id, endpoint를 저장하는 컨텍스트 변수
 _current_api_log_id: ContextVar[Optional[int]] = ContextVar("api_log_id", default=None)
 _current_user_id: ContextVar[Optional[int]] = ContextVar("user_id", default=None)
+_current_endpoint: ContextVar[Optional[str]] = ContextVar("endpoint", default=None)
 
 # 모델별 가격 (USD per 1M tokens) - 2024년 기준
 MODEL_PRICING = {
@@ -22,15 +23,20 @@ def is_llm_logging_enabled() -> bool:
     return os.getenv("ENABLE_LLM_LOGGING", "false").lower() in ("true", "1", "yes")
 
 
-def set_request_context(api_log_id: Optional[int] = None, user_id: Optional[int] = None):
+def set_request_context(
+    api_log_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+    endpoint: Optional[str] = None,
+):
     """현재 요청의 컨텍스트 설정 (미들웨어에서 호출)"""
     _current_api_log_id.set(api_log_id)
     _current_user_id.set(user_id)
+    _current_endpoint.set(endpoint)
 
 
-def get_request_context() -> tuple[Optional[int], Optional[int]]:
-    """현재 요청의 컨텍스트 반환 (api_log_id, user_id)"""
-    return _current_api_log_id.get(), _current_user_id.get()
+def get_request_context() -> tuple[Optional[int], Optional[int], Optional[str]]:
+    """현재 요청의 컨텍스트 반환 (api_log_id, user_id, endpoint)"""
+    return _current_api_log_id.get(), _current_user_id.get(), _current_endpoint.get()
 
 
 def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
@@ -43,18 +49,39 @@ def calculate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
 
 def extract_usage_from_response(response) -> tuple[int, int]:
     """LangChain 응답에서 토큰 사용량 추출"""
+    if response is None:
+        return (0, 0)
+
     try:
         # AIMessage의 response_metadata에서 추출
         if hasattr(response, "response_metadata"):
-            usage = response.response_metadata.get("token_usage", {})
-            return (
-                usage.get("prompt_tokens", 0),
-                usage.get("completion_tokens", 0),
-            )
-        # Pydantic 모델 (with_structured_output)의 경우
-        if hasattr(response, "__dict__"):
-            # structured output은 usage 정보가 없을 수 있음
-            return (0, 0)
+            metadata = response.response_metadata
+
+            # 방법 1: token_usage 키 (일부 버전)
+            usage = metadata.get("token_usage", {})
+            if usage:
+                return (
+                    usage.get("prompt_tokens", 0),
+                    usage.get("completion_tokens", 0),
+                )
+
+            # 방법 2: usage 키 (OpenAI 직접 응답 형식)
+            usage = metadata.get("usage", {})
+            if usage:
+                return (
+                    usage.get("prompt_tokens", 0),
+                    usage.get("completion_tokens", 0),
+                )
+
+            # 방법 3: 최상위 레벨에 직접 있는 경우
+            if "prompt_tokens" in metadata:
+                return (
+                    metadata.get("prompt_tokens", 0),
+                    metadata.get("completion_tokens", 0),
+                )
+
+        # Pydantic 모델 (with_structured_output)의 경우 - usage 정보 없음
+        return (0, 0)
     except Exception as e:
         logger.warning(f"[LLMLogger] 토큰 사용량 추출 실패: {e}")
     return (0, 0)
@@ -73,10 +100,11 @@ def log_llm_usage(
     if not is_llm_logging_enabled():
         return
 
-    # 컨텍스트에서 api_log_id, user_id 가져오기 (명시적 값 우선)
-    ctx_api_log_id, ctx_user_id = get_request_context()
+    # 컨텍스트에서 api_log_id, user_id, endpoint 가져오기 (명시적 값 우선)
+    ctx_api_log_id, ctx_user_id, ctx_endpoint = get_request_context()
     api_log_id = api_log_id or ctx_api_log_id
     user_id = user_id or ctx_user_id
+    endpoint = endpoint or ctx_endpoint
 
     # 비용 계산
     cost_usd = calculate_cost(model, input_tokens, output_tokens)

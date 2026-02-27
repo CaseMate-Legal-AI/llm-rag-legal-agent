@@ -17,7 +17,7 @@ POST /api/v1/agent/chat → Server-Sent Events 스트리밍
 import json
 import logging
 import time
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from langchain_core.messages import HumanMessage
@@ -26,7 +26,7 @@ import asyncio
 from openai import BadRequestError, RateLimitError
 
 from tool.security import get_current_user
-from app.middleware.chat_logger import save_chat_log
+from app.middleware.chat_logger import create_chat_log, update_chat_log
 from app.middleware.tool_logger import save_tool_log, set_tool_context
 
 logger = logging.getLogger(__name__)
@@ -356,6 +356,7 @@ async def _stream_graph_events(graph, input_data: dict, config: dict, collected:
 @router.post("/chat")
 async def agent_chat(
     request: AgentChatRequest,
+    http_request: Request,
     current_user=Depends(get_current_user),
 ):
     from app.home_agent.tools import create_tools
@@ -365,19 +366,31 @@ async def agent_chat(
     user_id = current_user.id
     law_firm_id = current_user.firm_id
 
+    # api_log_id 가져오기 (미들웨어에서 설정)
+    api_log_id = getattr(http_request.state, "api_log_id", None)
+
     async def event_stream():
         start_time = time.time()
         collected = {"route": None, "response": "", "tools_used": [], "cited_sources": []}
 
-        # 도구 로깅을 위한 컨텍스트 설정
-        set_tool_context(user_id=user_id)
+        thread_id = request.thread_id or f"user_{user_id}"
+
+        # chat_log를 먼저 생성하고 ID 획득
+        chat_log_id = create_chat_log(
+            user_id=user_id,
+            session_id=thread_id,
+            query=request.message,
+            api_log_id=api_log_id,
+        )
+
+        # 도구 로깅을 위한 컨텍스트 설정 (chat_log_id 포함)
+        set_tool_context(chat_log_id=chat_log_id, user_id=user_id)
 
         try:
             tools = create_tools(user_id=user_id, law_firm_id=law_firm_id)
             checkpointer = await get_checkpointer()
             graph = build_graph(tools=tools, checkpointer=checkpointer)
 
-            thread_id = request.thread_id or f"user_{user_id}"
             config = {
                 "configurable": {"thread_id": thread_id},
                 "recursion_limit": 20,
@@ -392,19 +405,18 @@ async def agent_chat(
             async for sse in _stream_graph_events(graph, input_data, config, collected):
                 yield sse
 
-            # 대화 로그 저장
+            # 대화 로그 업데이트 (완료 후)
             latency_ms = int((time.time() - start_time) * 1000)
-            save_chat_log(
-                user_id=user_id,
-                session_id=thread_id,
-                query=request.message,
-                route=collected.get("route"),
-                response=collected.get("response"),
-                tools_used=collected.get("tools_used"),
-                tool_call_count=len(collected.get("tools_used", [])),
-                cited_sources=collected.get("cited_sources"),
-                latency_ms=latency_ms,
-            )
+            if chat_log_id:
+                update_chat_log(
+                    chat_log_id=chat_log_id,
+                    route=collected.get("route"),
+                    response=collected.get("response"),
+                    tools_used=collected.get("tools_used"),
+                    tool_call_count=len(collected.get("tools_used", [])),
+                    cited_sources=collected.get("cited_sources"),
+                    latency_ms=latency_ms,
+                )
 
         except BadRequestError as e:
             error_msg = str(e)

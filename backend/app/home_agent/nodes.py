@@ -49,7 +49,7 @@ def _get_router_llm():
     if _router_llm is None:
         _router_llm = ChatOpenAI(
             model=AgentConfig.ROUTER_MODEL, temperature=0, request_timeout=15
-        ).with_structured_output(RouteDecision)
+        ).with_structured_output(RouteDecision, include_raw=True)
     return _router_llm
 
 
@@ -88,9 +88,11 @@ def router_node(state: dict) -> dict:
         SystemMessage(content=ROUTER_SYSTEM_PROMPT),
         last_human,
     ])
-    # structured output은 usage 정보 없음 - 수동 추정 (입력 ~200, 출력 ~10)
-    log_llm_response(None, model=AgentConfig.ROUTER_MODEL, purpose="router")
-    route = result.route
+    # include_raw=True: {"parsed": RouteDecision, "raw": AIMessage}
+    parsed = result["parsed"]
+    raw = result["raw"]
+    log_llm_response(raw, model=AgentConfig.ROUTER_MODEL, purpose="router")
+    route = parsed.route
     logger.info(f"[Router] 분류 결과: {route}")
     return {"route": route}
 
