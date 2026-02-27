@@ -17,6 +17,14 @@ from app.models.precedent import SimilarPrecedent
 
 logger = logging.getLogger(__name__)
 
+# "최근" 관련 키워드 (판례 검색 시 최신순 정렬 적용)
+RECENCY_KEYWORDS = {"최근", "최신", "요즘", "근래", "새로운", "신규", "올해", "금년"}
+
+
+def _has_recency_keyword(query: str) -> bool:
+    """쿼리에 최근 관련 키워드가 있는지 확인"""
+    return any(kw in query for kw in RECENCY_KEYWORDS)
+
 
 def _structured_return(text: str, data) -> str:
     """LLM용 텍스트 + 프론트 리치 렌더링용 구조화 데이터를 JSON 문자열로 반환"""
@@ -277,7 +285,10 @@ def create_tools(user_id: int, law_firm_id: int):
             from app.services.precedent_search_service import PrecedentSearchService
 
             service = PrecedentSearchService()
-            result = service.search_cases(query=query, limit=limit)
+
+            # "최근" 키워드가 있으면 최신순 정렬
+            sort_order = "latest" if _has_recency_keyword(query) else "relevance"
+            result = service.search_cases(query=query, limit=limit, sort=sort_order)
 
             items = result.get("results", [])
             if not items:
@@ -359,7 +370,7 @@ def create_tools(user_id: int, law_firm_id: int):
             with SessionLocal() as db:
                 analysis = db.query(CaseAnalysis).filter(CaseAnalysis.case_id == case_id).first()
                 if not analysis:
-                    return _structured_return("사건 분석이 필요합니다. analyze_case를 먼저 호출하세요.", None)
+                    return _structured_return("사건 분석이 필요합니다. 사건을 먼저 분석해주세요.", None)
 
                 # 1. SimilarPrecedent 테이블에서 캐시 확인
                 cached = db.query(SimilarPrecedent).filter(
@@ -723,12 +734,21 @@ def create_tools(user_id: int, law_firm_id: int):
             from app.services.rag_service import RAGService
 
             rag_service = RAGService()
+
+            # "최근" 키워드가 있으면 최신순 정렬
+            precedent_sort = "latest" if _has_recency_keyword(query) else "relevance"
+
+            # 쿼리에서 법령명 추출 (특정 법령이 명시된 경우 필터링용)
+            law_name_match = re.search(r'([가-힣]+(?:법|령|규칙))', query)
+            specified_law_name = law_name_match.group(1) if law_name_match else None
+
             rag_context = await rag_service.retrieve(
                 query=query,
                 keyword=keyword if keyword else None,
                 sources=["precedent", "law"],
                 precedent_limit=precedent_limit,
-                law_limit=law_limit
+                law_limit=law_limit,
+                precedent_sort=precedent_sort
             )
 
             if not rag_context.sources:
@@ -751,8 +771,12 @@ def create_tools(user_id: int, law_firm_id: int):
                         "content_snippet": source.content[:500],
                     })
                 elif source.type == "law":
+                    source_law_name = source.metadata.get("law_name", "")
+                    # 특정 법령이 명시된 경우 해당 법령만 포함
+                    if specified_law_name and specified_law_name not in source_law_name:
+                        continue
                     laws.append({
-                        "law_name": source.metadata.get("law_name", ""),
+                        "law_name": source_law_name,
                         "article_number": source.metadata.get("article_number", ""),
                         "article_title": source.metadata.get("article_title", ""),
                         "content": source.content,  # 전체 내용 (프론트에서 펼치기/접기)

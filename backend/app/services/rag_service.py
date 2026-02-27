@@ -110,7 +110,8 @@ class RAGService:
         keyword: Optional[str] = None,
         sources: list[str] = None,
         precedent_limit: int = 5,
-        law_limit: int = 3
+        law_limit: int = 3,
+        precedent_sort: str = "relevance"
     ) -> RAGContext:
         """
         멀티소스 병렬 검색
@@ -121,6 +122,7 @@ class RAGService:
             sources: 검색할 소스 리스트 ["precedent", "law"]
             precedent_limit: 판례 검색 개수
             law_limit: 법령 검색 개수
+            precedent_sort: 판례 정렬 순서 ("relevance" 또는 "latest")
 
         Returns:
             RAGContext: 통합된 검색 결과
@@ -130,14 +132,14 @@ class RAGService:
 
         # keyword + query 조합으로 검색 (세부 조건도 반영)
         search_query = f"{keyword} {query}" if keyword else query
-        logger.info(f"[RAG] 병렬 검색 시작: query='{search_query[:50]}...', sources={sources}")
+        logger.info(f"[RAG] 병렬 검색 시작: query='{search_query[:50]}...', sources={sources}, sort={precedent_sort}")
 
         # 병렬 검색 태스크 생성
         tasks = []
         task_names = []
 
         if "precedent" in sources:
-            tasks.append(self._search_precedents(search_query, precedent_limit))
+            tasks.append(self._search_precedents(search_query, precedent_limit, sort=precedent_sort))
             task_names.append("precedent")
 
         if "law" in sources:
@@ -159,12 +161,12 @@ class RAGService:
 
         return RAGContext(sources=all_sources, query=query)
 
-    async def _search_precedents(self, query: str, limit: int) -> list[RAGSource]:
+    async def _search_precedents(self, query: str, limit: int, sort: str = "relevance") -> list[RAGSource]:
         """판례 검색 (동기 함수를 비동기로 래핑)"""
         loop = asyncio.get_event_loop()
         results = await loop.run_in_executor(
             None,
-            lambda: self.precedent_service.search_cases(query=query, limit=limit)
+            lambda: self.precedent_service.search_cases(query=query, limit=limit, sort=sort)
         )
 
         sources = []

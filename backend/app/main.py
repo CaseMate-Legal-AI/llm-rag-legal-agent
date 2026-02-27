@@ -12,7 +12,18 @@ from app.models.law_firm import LawFirm  # LawFirm 모델 import
 from app.models import evidence  # Evidence 관련 모델들 import
 from app.models import case_document  # CaseDocument 모델 import
 from app.models.precedent import Precedent, PrecedentSummary  # 판례 원문 모델 import
+from app.models import logs  # 로깅 모델 import (api_logs, llm_usage_logs, chat_logs, tool_usage_logs)
 from app.config import EmbeddingConfig
+
+# Sentry 에러 추적 초기화
+import sentry_sdk
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        environment=os.getenv("ENVIRONMENT", "development"),
+        traces_sample_rate=0.1,  # 10% 요청만 트레이싱 (비용 절약)
+        send_default_pii=False,  # 개인정보 전송 안 함
+    )
 
 # 로깅 설정
 logging.basicConfig(
@@ -111,6 +122,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# API 로깅 미들웨어 (ENABLE_API_LOGGING=true 시 활성화)
+if os.getenv("ENABLE_API_LOGGING", "false").lower() in ("true", "1", "yes"):
+    from app.middleware import ApiLoggerMiddleware
+    app.add_middleware(ApiLoggerMiddleware)
+    logger.info("API 로깅 미들웨어 활성화")
 
 # v1 API 라우터 포함
 from app.api.v1 import router as v1_router

@@ -1,6 +1,7 @@
 """
 조건부 StateGraph 정의
 
+General (일반):   Router → General → END  (gpt-4o-mini 2회)
 Simple (명령형):  Router → Agent → Tools → Agent → END
 Complex (질문형): Router → Agent → Tools → Agent → ... → Generator → END  (멀티홉)
 
@@ -18,10 +19,12 @@ from langgraph.prebuilt import ToolNode
 
 from app.home_agent.nodes import (
     router_node,
+    general_node,
     agent_node,
     generator_node,
     route_after_router,
     route_after_agent,
+    route_after_tools,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,6 +43,7 @@ def build_graph(tools: list, checkpointer=None):
 
     # 노드 등록
     graph.add_node("router", router_node)
+    graph.add_node("general", general_node)
     graph.add_node("agent", partial(agent_node, tools=tools))
     graph.add_node("tools", ToolNode(tools, handle_tool_errors=True))
     graph.add_node("generator", generator_node)
@@ -47,11 +51,14 @@ def build_graph(tools: list, checkpointer=None):
     # 엣지: START → Router
     graph.add_edge(START, "router")
 
-    # 조건부 엣지: Router → (general→generator, simple/complex→agent)
+    # 조건부 엣지: Router → (general→general, simple/complex→agent)
     graph.add_conditional_edges("router", route_after_router, {
-        "generator": "generator",
+        "general": "general",
         "agent": "agent",
     })
+
+    # 엣지: General → END (gpt-4o-mini 1회로 종료)
+    graph.add_edge("general", END)
 
     # 조건부 엣지: Agent → (tool_calls→tools, simple→END, complex→generator)
     graph.add_conditional_edges("agent", route_after_agent, {
@@ -60,8 +67,11 @@ def build_graph(tools: list, checkpointer=None):
         "generator": "generator",
     })
 
-    # 엣지: Tools → Agent (멀티홉 — Agent가 추가 도구 필요 여부 판단)
-    graph.add_edge("tools", "agent")
+    # 조건부 엣지: Tools → (단일도구+complex→generator, 그 외→agent)
+    graph.add_conditional_edges("tools", route_after_tools, {
+        "generator": "generator",
+        "agent": "agent",
+    })
 
     # 엣지: Generator → END
     graph.add_edge("generator", END)

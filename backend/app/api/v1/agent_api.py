@@ -16,6 +16,7 @@ POST /api/v1/agent/chat → Server-Sent Events 스트리밍
 
 import json
 import logging
+import time
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -25,6 +26,8 @@ import asyncio
 from openai import BadRequestError, RateLimitError
 
 from tool.security import get_current_user
+from app.middleware.chat_logger import save_chat_log
+from app.middleware.tool_logger import save_tool_log, set_tool_context
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["agent"])
@@ -33,6 +36,7 @@ router = APIRouter(tags=["agent"])
 
 STATUS_MESSAGES = {
     "router": "질문을 분석하고 있습니다...",
+    "general": "답변을 작성하고 있습니다...",
     "agent": "도구를 선택하고 있습니다...",
     "tools": "도구를 실행하고 있습니다...",
     "generator": "답변을 작성하고 있습니다...",
@@ -40,6 +44,7 @@ STATUS_MESSAGES = {
 
 STATUS_STEPS = {
     "router": "routing",
+    "general": "generating",
     "agent": "thinking",
     "tools": "executing",
     "generator": "generating",
@@ -164,17 +169,21 @@ def _sse_event(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-async def _stream_graph_events(graph, input_data: dict, config: dict):
+async def _stream_graph_events(graph, input_data: dict, config: dict, collected: dict = None):
     """그래프 이벤트를 SSE로 변환하는 공용 제너레이터.
 
     정상 실행과 BadRequestError 재시도 양쪽에서 동일하게 사용.
-    Yields: (sse_string, tool_history, tool_structured)
+    Yields: sse_string
+
+    Args:
+        collected: 선택적. 수집된 정보를 저장할 dict (route, tools_used, cited_sources, response)
     """
     current_node = ""
     current_route = "simple"  # Router 결과 추적 (complex면 agent 토큰 스트리밍 안 함)
     tool_history: list[str] = []
     tool_structured: dict[str, dict | None] = {}
-    pending_tools: dict[str, str] = {}  # run_id → tool_name (tool_end 누락 추적)
+    pending_tools: dict[str, dict] = {}  # run_id → {name, start_time, input} (tool_end 누락 추적 + 로깅)
+    response_text = ""  # 최종 응답 수집
 
     async for event in graph.astream_events(input_data, config, version="v2"):
         kind = event["event"]
@@ -202,16 +211,19 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
 
         # ── LLM 토큰 스트리밍 ──
         # generator: 항상 스트리밍
+        # general: 일반 대화 스트리밍
         # agent: simple일 때만 스트리밍 (complex는 Generator가 최종 답변)
         elif kind == "on_chat_model_stream":
             should_stream = (
                 current_node == "generator" or
+                current_node == "general" or
                 (current_node == "agent" and current_route == "simple")
             )
             if should_stream:
                 chunk = event["data"]["chunk"]
                 content = chunk.content
                 if content:
+                    response_text += content  # 응답 수집
                     yield _sse_event("token", {"content": content})
 
         # ── 도구 시작 ──
@@ -219,7 +231,11 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
             tool_name = event["name"]
             run_id = event.get("run_id", "")
             tool_input = event["data"].get("input", {})
-            pending_tools[run_id] = tool_name
+            pending_tools[run_id] = {
+                "name": tool_name,
+                "start_time": time.time(),
+                "input": tool_input,
+            }
             yield _sse_event("tool_start", {
                 "id": run_id,
                 "tool": tool_name,
@@ -231,6 +247,11 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
         elif kind == "on_tool_end":
             tool_name = event["name"]
             run_id = event.get("run_id", "")
+            tool_info = pending_tools.pop(run_id, {})
+            start_time = tool_info.get("start_time", time.time())
+            tool_input = tool_info.get("input", {})
+            latency_ms = int((time.time() - start_time) * 1000)
+
             try:
                 output = event["data"].get("output", "")
                 if hasattr(output, "content"):
@@ -243,7 +264,14 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
 
                 tool_history.append(tool_name)
                 tool_structured[tool_name] = structured
-                pending_tools.pop(run_id, None)
+
+                # 도구 사용 로깅
+                save_tool_log(
+                    tool_name=tool_name,
+                    input_params=tool_input,
+                    success=True,
+                    latency_ms=latency_ms,
+                )
 
                 yield _sse_event("tool_end", {
                     "id": run_id,
@@ -254,8 +282,16 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
                 })
             except Exception as e:
                 logger.error(f"[Agent] tool_end 처리 실패 ({tool_name}): {e}", exc_info=True)
-                pending_tools.pop(run_id, None)
                 tool_history.append(tool_name)
+
+                # 실패 로깅
+                save_tool_log(
+                    tool_name=tool_name,
+                    input_params=tool_input,
+                    success=False,
+                    latency_ms=latency_ms,
+                )
+
                 yield _sse_event("tool_end", {
                     "id": run_id,
                     "tool": tool_name,
@@ -265,9 +301,23 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
                 })
 
     # tool_start는 왔지만 tool_end가 누락된 도구에 대해 에러 tool_end 발행
-    for run_id, tool_name in pending_tools.items():
+    for run_id, tool_info in pending_tools.items():
+        tool_name = tool_info.get("name", "unknown")
+        tool_input = tool_info.get("input", {})
+        start_time = tool_info.get("start_time", time.time())
+        latency_ms = int((time.time() - start_time) * 1000)
+
         logger.warning(f"[Agent] tool_end 누락 — {tool_name} (run_id={run_id})")
         tool_history.append(tool_name)
+
+        # 실패 로깅
+        save_tool_log(
+            tool_name=tool_name,
+            input_params=tool_input,
+            success=False,
+            latency_ms=latency_ms,
+        )
+
         yield _sse_event("tool_end", {
             "id": run_id,
             "tool": tool_name,
@@ -277,6 +327,7 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
         })
 
     # 최종 상태에서 cited_sources 추출
+    cited_sources = []
     try:
         final_state = await graph.aget_state(config)
         cited_sources = final_state.values.get("cited_sources", [])
@@ -291,6 +342,13 @@ async def _stream_graph_events(graph, input_data: dict, config: dict):
         suggestions = await _generate_suggestions(user_message, tool_history, tool_structured)
         if suggestions:
             yield _sse_event("suggestions", {"items": suggestions})
+
+    # 수집된 정보 저장 (chat_logs용)
+    if collected is not None:
+        collected["route"] = current_route
+        collected["response"] = response_text
+        collected["tools_used"] = tool_history
+        collected["cited_sources"] = cited_sources
 
     yield _sse_event("done", {})
 
@@ -308,6 +366,12 @@ async def agent_chat(
     law_firm_id = current_user.firm_id
 
     async def event_stream():
+        start_time = time.time()
+        collected = {"route": None, "response": "", "tools_used": [], "cited_sources": []}
+
+        # 도구 로깅을 위한 컨텍스트 설정
+        set_tool_context(user_id=user_id)
+
         try:
             tools = create_tools(user_id=user_id, law_firm_id=law_firm_id)
             checkpointer = await get_checkpointer()
@@ -325,8 +389,22 @@ async def agent_chat(
                 "cited_sources": [],
             }
 
-            async for sse in _stream_graph_events(graph, input_data, config):
+            async for sse in _stream_graph_events(graph, input_data, config, collected):
                 yield sse
+
+            # 대화 로그 저장
+            latency_ms = int((time.time() - start_time) * 1000)
+            save_chat_log(
+                user_id=user_id,
+                session_id=thread_id,
+                query=request.message,
+                route=collected.get("route"),
+                response=collected.get("response"),
+                tools_used=collected.get("tools_used"),
+                tool_call_count=len(collected.get("tools_used", [])),
+                cited_sources=collected.get("cited_sources"),
+                latency_ms=latency_ms,
+            )
 
         except BadRequestError as e:
             error_msg = str(e)
