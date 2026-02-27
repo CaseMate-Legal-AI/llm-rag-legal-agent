@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   FileText, Star, AlertTriangle, CheckCircle, ExternalLink,
   ChevronDown, ChevronUp, ImageIcon, FileAudio, FileVideo,
@@ -35,7 +37,9 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
   const navigate = useNavigate();
   const items = data as unknown as EvidenceItem[];
 
-  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(
+    () => new Set(items.length > 0 ? [items[0].id] : [])
+  );
 
   const toggleExpand = (id: number) => {
     setExpandedIds((prev) => {
@@ -58,7 +62,7 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
       {caseId && (
         <button
           onClick={() => navigate(`/cases/${caseId}`)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
         >
           <span>사건 상세 페이지에서 보기</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -75,49 +79,66 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
             {/* 헤더 */}
             <div className="flex items-center gap-2">
               <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-xs font-semibold text-foreground truncate flex-1">
+              <span className="text-sm font-semibold text-foreground truncate flex-1">
                 {item.file_name}
               </span>
               {item.starred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 shrink-0" />}
               {item.risk_level && (
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${RISK_COLORS[item.risk_level] || ""}`}>
-                  {item.risk_level === "high" ? "고위험" : item.risk_level === "medium" ? "주의" : "양호"}
+                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${RISK_COLORS[item.risk_level] || ""}`}>
+                  {item.risk_level === "high" ? "핵심 증거" : item.risk_level === "medium" ? "일반 증거" : "참고"}
                 </span>
               )}
               <button
                 onClick={() => toggleExpand(item.id)}
-                className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center hover:bg-muted/60 transition-colors"
+                className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center bg-blue-900/10 hover:bg-blue-900/20 transition-colors"
               >
                 {isExpanded
-                  ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                  : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ? <ChevronUp className="h-4 w-4 text-blue-900" />
+                  : <ChevronDown className="h-4 w-4 text-blue-900" />
                 }
               </button>
             </div>
 
             {/* 메타 정보 */}
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-3 text-[13px] text-muted-foreground">
               <span>{item.doc_type}</span>
               {item.evidence_date && <span>{item.evidence_date}</span>}
               {item.has_analysis ? (
                 <span className="flex items-center gap-0.5 text-green-600">
-                  <CheckCircle className="h-2.5 w-2.5" /> 분석 완료
+                  <CheckCircle className="h-3 w-3" /> 분석 완료
                 </span>
               ) : (
                 <span className="flex items-center gap-0.5 text-muted-foreground/60">
-                  <AlertTriangle className="h-2.5 w-2.5" /> 미분석
+                  <AlertTriangle className="h-3 w-3" /> 미분석
                 </span>
               )}
             </div>
 
             {item.description && (
-              <p className="text-[11px] text-muted-foreground leading-relaxed">{item.description}</p>
+              <div className="text-xs text-muted-foreground leading-relaxed
+                prose prose-sm dark:prose-invert max-w-none
+                prose-p:my-0.5 prose-p:text-xs prose-p:text-muted-foreground
+                prose-strong:text-foreground prose-strong:font-semibold
+                prose-li:text-xs prose-li:my-0.5
+                prose-ul:my-0.5 prose-ol:my-0.5
+              ">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.description}</ReactMarkdown>
+              </div>
             )}
 
             {item.analysis_summary && (
-              <div className="text-[11px] text-card-foreground bg-muted/30 rounded-lg px-2.5 py-1.5 leading-relaxed">
-                {item.analysis_summary.slice(0, 200)}
-                {item.analysis_summary.length > 200 && "..."}
+              <div className="text-xs text-card-foreground bg-muted/30 rounded-lg px-2.5 py-1.5 leading-relaxed
+                prose prose-sm dark:prose-invert max-w-none
+                prose-p:my-0.5 prose-p:text-xs prose-p:text-card-foreground
+                prose-strong:text-foreground prose-strong:font-semibold
+                prose-li:text-xs prose-li:my-0.5
+                prose-ul:my-0.5 prose-ol:my-0.5
+              ">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {item.analysis_summary.length > 200
+                    ? item.analysis_summary.slice(0, 200) + "..."
+                    : item.analysis_summary}
+                </ReactMarkdown>
               </div>
             )}
 

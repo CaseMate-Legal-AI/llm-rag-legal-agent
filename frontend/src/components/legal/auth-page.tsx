@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Scale, Loader2, FileText, Search, MessageSquare } from "lucide-react";
+import { Scale, Loader2, FileText, Search, MessageSquare, AlertCircle } from "lucide-react";
 
 interface AuthPageProps {
   onLogin: () => void | Promise<void>;
@@ -32,12 +32,15 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
   const [role, setRole] = useState("");
   const [firmCode, setFirmCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    setErrorMessage("");
+
     if (mode === "signup" && !firmCode.trim()) {
-      alert("회사 코드를 입력해주세요.");
+      setErrorMessage("회사 코드를 입력해주세요.");
       return;
     }
 
@@ -101,7 +104,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
           : mode === "login"
             ? "로그인 중 오류가 발생했습니다."
             : "회원가입 중 오류가 발생했습니다.";
-      alert(errorMessage);
+      setErrorMessage(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -191,6 +194,14 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
             </p>
           </div>
 
+          {/* Inline Error Banner */}
+          {errorMessage && (
+            <div className="flex items-center gap-2.5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 mb-2">
+              <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+              <p className="text-sm text-destructive">{errorMessage}</p>
+            </div>
+          )}
+
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === "signup" && (
@@ -276,12 +287,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 mt-1 flex items-center justify-center font-semibold rounded-lg text-white text-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
-              style={{
-                background: "#7C6EF6",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#6D5EF5"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = "#7C6EF6"; }}
+              className="w-full h-11 mt-1 flex items-center justify-center font-semibold rounded-lg text-white text-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-[#7C6EF6] hover:bg-[#6D5EF5]"
             >
               {isLoading ? (
                 <>
@@ -303,7 +309,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
                 계정이 없으신가요?{" "}
                 <button
                   type="button"
-                  onClick={() => setMode("signup")}
+                  onClick={() => { setMode("signup"); setErrorMessage(""); }}
                   disabled={isLoading}
                   className="text-primary font-semibold hover:underline underline-offset-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -315,7 +321,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
                 이미 계정이 있으신가요?{" "}
                 <button
                   type="button"
-                  onClick={() => setMode("login")}
+                  onClick={() => { setMode("login"); setErrorMessage(""); }}
                   disabled={isLoading}
                   className="text-primary font-semibold hover:underline underline-offset-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >

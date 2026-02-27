@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, ArrowUpRight, Loader2, Edit, Trash2, X } from "lucide-react";
+import { Plus, Search, ArrowUpRight, Loader2, Edit, Trash2, X, FileText } from "lucide-react";
 import { useState, useEffect } from "react";
 
 // API 응답 타입
@@ -373,19 +373,27 @@ export function CasesPage() {
 
       {/* Empty State */}
       {filteredCases.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-sm text-muted-foreground">
-            {searchQuery ? "검색 결과가 없습니다." : "등록된 사건이 없습니다."}
-          </p>
-          {!searchQuery && (
-            <Button
-              variant="outline"
-              className="mt-4 gap-2"
-              onClick={() => navigate("/new-case")}
-            >
-              <Plus className="h-4 w-4" />
-              첫 사건 등록하기
-            </Button>
+        <div className="text-center py-16 text-muted-foreground">
+          {searchQuery ? (
+            <>
+              <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
+              <p className="text-base mb-2">검색 결과가 없습니다</p>
+              <p className="text-sm text-muted-foreground/70">다른 검색어로 다시 시도해보세요</p>
+            </>
+          ) : (
+            <>
+              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
+              <p className="text-base mb-2">등록된 사건이 없습니다</p>
+              <p className="text-sm text-muted-foreground/70 mb-5">새 사건을 등록하고 AI 분석을 시작하세요</p>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => navigate("/new-case")}
+              >
+                <Plus className="h-4 w-4" />
+                첫 사건 등록하기
+              </Button>
+            </>
           )}
         </div>
       )}

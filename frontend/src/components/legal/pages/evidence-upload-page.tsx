@@ -145,6 +145,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
   // 폴더 드래그 상태
   const [draggedFolderId, setDraggedFolderId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<"before" | "inside" | "after" | null>(null);
 
   // 폴더 컨텍스트 메뉴
   const [folderContextMenu, setFolderContextMenu] = useState<{ folderId: string; x: number; y: number } | null>(null);
@@ -1010,7 +1011,11 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
           const isDragOver = dragOverFolderId === folder.id;
 
           return (
-            <div key={folder.id}>
+            <div key={folder.id} className="relative">
+              {/* 상단 기준선 (before) */}
+              {isDragOver && dropPosition === "before" && (
+                <div className="absolute top-0 left-2 right-2 h-0.5 bg-primary rounded-full z-10" />
+              )}
               <div
                 draggable
                 onDragStart={(e) => {
@@ -1021,24 +1026,42 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  if (draggedFolderId && draggedFolderId !== folder.id) {
-                    setDragOverFolderId(folder.id);
-                  }
+                  if (!draggedFolderId || draggedFolderId === folder.id) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const y = e.clientY - rect.top;
+                  const h = rect.height;
+                  let pos: "before" | "inside" | "after";
+                  if (y < h * 0.25) pos = "before";
+                  else if (y > h * 0.75) pos = "after";
+                  else pos = "inside";
+                  setDragOverFolderId(folder.id);
+                  setDropPosition(pos);
                 }}
                 onDragLeave={(e) => {
                   e.stopPropagation();
-                  if (dragOverFolderId === folder.id) setDragOverFolderId(null);
+                  if (dragOverFolderId === folder.id) {
+                    setDragOverFolderId(null);
+                    setDropPosition(null);
+                  }
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  const pos = dropPosition;
                   setDragOverFolderId(null);
+                  setDropPosition(null);
                   if (draggedFolderId && draggedFolderId !== folder.id) {
-                    handleMoveFolder(draggedFolderId, folder.id);
+                    if (pos === "inside") {
+                      handleMoveFolder(draggedFolderId, folder.id);
+                    } else {
+                      // before/after → 같은 부모(형제)로 이동
+                      const targetParent = folder.parentId || "root";
+                      handleMoveFolder(draggedFolderId, targetParent);
+                    }
                   }
                   setDraggedFolderId(null);
                 }}
-                onDragEnd={() => { setDraggedFolderId(null); setDragOverFolderId(null); }}
+                onDragEnd={() => { setDraggedFolderId(null); setDragOverFolderId(null); setDropPosition(null); }}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -1047,7 +1070,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
                 onClick={() => setSelectedFolder(folder.id)}
                 onDoubleClick={() => startRenameFolder(folder.id)}
                 className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm transition-colors group cursor-default ${
-                  isDragOver
+                  isDragOver && dropPosition === "inside"
                     ? "bg-primary/15 ring-1 ring-primary/40"
                     : isSelected
                       ? "bg-secondary text-foreground font-medium"
@@ -1113,6 +1136,10 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
                   </>
                 )}
               </div>
+              {/* 하단 기준선 (after) */}
+              {isDragOver && dropPosition === "after" && (
+                <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full z-10" />
+              )}
               {needsSubtree && renderFolderTree(folder.id, depth + 1)}
             </div>
           );
@@ -1342,7 +1369,29 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
           </div>
 
           {/* Sidebar Content */}
-          <div className="flex-1 overflow-y-auto space-y-0.5">
+          <div
+            className={`flex-1 overflow-y-auto space-y-0.5 ${draggedFolderId ? "ring-1 ring-transparent" : ""}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (draggedFolderId && pageMode === "evidence") {
+                setDragOverFolderId("root");
+              }
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget === e.target && dragOverFolderId === "root") {
+                setDragOverFolderId(null);
+              }
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOverFolderId(null);
+              setDropPosition(null);
+              if (draggedFolderId && pageMode === "evidence") {
+                handleMoveFolder(draggedFolderId, "root");
+                setDraggedFolderId(null);
+              }
+            }}
+          >
             {pageMode === "evidence" ? (
               <>
                 <div

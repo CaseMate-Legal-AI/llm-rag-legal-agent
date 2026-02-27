@@ -418,6 +418,40 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   cursor: pointer !important;
 }
 
+/* 플로팅 버블: 스트리밍 프로그레스 링 회전 */
+@keyframes progress-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 플로팅 버블: 글로우 호흡 (순수 보라) */
+@keyframes orb-breathe {
+  0%, 100% {
+    background: radial-gradient(circle, rgba(109,94,245,0.4) 30%, rgba(167,139,250,0.12) 60%, transparent 75%);
+  }
+  50% {
+    background: radial-gradient(circle, rgba(109,94,245,0.55) 25%, rgba(167,139,250,0.22) 55%, transparent 75%);
+  }
+}
+
+/* 플로팅 버블: 반짝이 파티클 */
+@keyframes sparkle-1 {
+  0%, 100% { opacity: 0.2; transform: translate(0, 0) scale(0.8); }
+  30% { opacity: 1; transform: translate(2px, -3px) scale(1.2); }
+  70% { opacity: 0.3; transform: translate(-1px, 2px) scale(0.6); }
+}
+@keyframes sparkle-2 {
+  0%, 100% { opacity: 0.3; transform: translate(0, 0) scale(0.7); }
+  40% { opacity: 0.9; transform: translate(-3px, 1px) scale(1.3); }
+  80% { opacity: 0.15; transform: translate(2px, -2px) scale(0.5); }
+}
+@keyframes sparkle-3 {
+  0%, 100% { opacity: 0.15; transform: translate(0, 0) scale(1); }
+  25% { opacity: 0.8; transform: translate(1px, 3px) scale(0.6); }
+  60% { opacity: 1; transform: translate(-2px, -1px) scale(1.4); }
+  85% { opacity: 0.2; transform: translate(1px, 0) scale(0.8); }
+}
+
 /* 분석 stale 알림 말풍선 애니메이션 */
 @keyframes stale-popup-in {
   0% {

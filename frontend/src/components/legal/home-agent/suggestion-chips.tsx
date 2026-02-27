@@ -22,7 +22,7 @@ export function SuggestionChips({ suggestions, onQuestionClick, disabled }: Prop
               key={i}
               disabled={disabled}
               onClick={() => navigate(item.action!.navigate)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all border disabled:opacity-40 disabled:cursor-not-allowed bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all border disabled:opacity-40 disabled:cursor-not-allowed bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
             >
               {item.text}
               <ArrowRight className="h-3 w-3" />
@@ -35,7 +35,7 @@ export function SuggestionChips({ suggestions, onQuestionClick, disabled }: Prop
             key={i}
             disabled={disabled}
             onClick={() => onQuestionClick(item.text)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all border disabled:opacity-40 disabled:cursor-not-allowed bg-muted/50 text-foreground border-border/50 hover:bg-muted hover:border-border"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[13px] font-medium transition-all border disabled:opacity-40 disabled:cursor-not-allowed bg-muted/50 text-foreground border-border/50 hover:bg-muted hover:border-border"
           >
             {item.text}
           </button>

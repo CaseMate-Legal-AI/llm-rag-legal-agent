@@ -31,6 +31,9 @@ class CategoryRenameRequest(BaseModel):
 class CategoryMoveRequest(BaseModel):
     parent_id: int | None = None
 
+class EvidenceMoveRequest(BaseModel):
+    category_id: int | None = None
+
 # 환경변수 로드
 load_dotenv()
 
@@ -1137,6 +1140,58 @@ async def toggle_starred(
         logger.error(f"즐겨찾기 토글 실패: {str(e)}")
         logger.error(f"즐겨찾기 토글 실패: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="즐겨찾기 처리 중 오류가 발생했습니다")
+
+@router.patch("/{evidence_id}/move")
+async def move_evidence_to_category(
+    evidence_id: int,
+    request: EvidenceMoveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    증거 파일의 카테고리(폴더) 변경
+
+    - evidence_id: 이동할 증거 ID
+    - category_id: 대상 카테고리 ID (null이면 미분류/전체)
+    """
+    logger.debug(f"증거 카테고리 이동: evidence_id={evidence_id}, category_id={request.category_id}, user_id={current_user.id}")
+
+    try:
+        evidence = db.query(models.Evidence).filter(models.Evidence.id == evidence_id).first()
+        if not evidence:
+            raise HTTPException(status_code=404, detail="증거를 찾을 수 없습니다")
+
+        if evidence.law_firm_id != current_user.firm_id:
+            raise HTTPException(status_code=403, detail="해당 증거에 접근할 권한이 없습니다")
+
+        if request.category_id is not None:
+            category = db.query(models.EvidenceCategory).filter(
+                models.EvidenceCategory.id == request.category_id
+            ).first()
+            if not category:
+                raise HTTPException(status_code=404, detail="카테고리를 찾을 수 없습니다")
+            if category.firm_id != current_user.firm_id:
+                raise HTTPException(status_code=403, detail="해당 카테고리에 접근할 권한이 없습니다")
+
+        evidence.category_id = request.category_id
+        db.commit()
+        db.refresh(evidence)
+
+        logger.debug(f"증거 카테고리 이동 완료: evidence_id={evidence_id}, category_id={request.category_id}")
+
+        return {
+            "message": "카테고리 이동 완료",
+            "evidence_id": evidence_id,
+            "category_id": evidence.category_id
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"증거 카테고리 이동 실패: {str(e)}")
+        logger.error(f"증거 카테고리 이동 실패: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="카테고리 이동 중 오류가 발생했습니다")
 
 @router.get("/{evidence_id}/url")
 async def get_signed_url(

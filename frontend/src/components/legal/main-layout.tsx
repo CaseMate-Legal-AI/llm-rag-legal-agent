@@ -148,7 +148,7 @@ export function MainLayout({ onLogout, userInfo }: MainLayoutProps) {
           </header>
 
           {/* Page Content */}
-          <main className={isHomePage ? "flex-1 flex flex-col" : "flex-1 flex flex-col p-6 lg:p-10 lg:px-[5rem]"}>
+          <main className={isHomePage ? "flex-1 flex flex-col" : "flex-1 flex flex-col p-4 sm:p-6 lg:p-10 lg:px-[5rem]"}>
             <Outlet context={{ userInfo: localUserInfo }} />
           </main>
         </div>

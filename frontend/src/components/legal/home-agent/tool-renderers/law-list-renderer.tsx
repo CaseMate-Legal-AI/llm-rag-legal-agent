@@ -1,4 +1,6 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { BookOpen, ChevronDown, ChevronUp } from "lucide-react";
 
 interface LawItem {
@@ -23,40 +25,38 @@ function LawCard({ item }: { item: LawItem }) {
           <BookOpen className="h-4 w-4 text-teal-500" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-teal-600 dark:text-teal-400">
-            {item.law_name}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-teal-600 dark:text-teal-400">
+              {item.law_name}
+            </p>
+            {isLong && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center bg-teal-500/10 hover:bg-teal-500/20 transition-colors"
+              >
+                {expanded
+                  ? <ChevronUp className="h-4 w-4 text-teal-500" />
+                  : <ChevronDown className="h-4 w-4 text-teal-500" />
+                }
+              </button>
+            )}
+          </div>
           <p className="text-sm font-medium text-foreground mt-0.5">
             제{item.article_number}조 {item.article_title}
           </p>
           {item.content && (
-            <>
-              <p
-                className={`text-xs text-muted-foreground mt-1.5 leading-relaxed whitespace-pre-wrap ${
-                  !expanded && isLong ? "line-clamp-4" : ""
-                }`}
-              >
-                {item.content}
-              </p>
-              {isLong && (
-                <button
-                  onClick={() => setExpanded(!expanded)}
-                  className="flex items-center gap-1 mt-1.5 text-xs text-teal-600 dark:text-teal-400 hover:underline"
-                >
-                  {expanded ? (
-                    <>
-                      <ChevronUp className="h-3 w-3" />
-                      접기
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-3 w-3" />
-                      전체 보기
-                    </>
-                  )}
-                </button>
-              )}
-            </>
+            <div
+              className={`text-sm text-muted-foreground mt-1.5 leading-relaxed
+                prose prose-sm dark:prose-invert max-w-none
+                prose-p:my-1 prose-p:text-sm prose-p:text-muted-foreground
+                prose-strong:text-foreground prose-strong:font-semibold
+                prose-li:text-sm prose-li:my-0.5
+                prose-ul:my-1 prose-ol:my-1
+                ${!expanded && isLong ? "line-clamp-4" : ""}
+              `}
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown>
+            </div>
           )}
         </div>
       </div>

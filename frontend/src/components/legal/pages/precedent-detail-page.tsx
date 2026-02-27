@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useNavigate, useParams, useLocation, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import {
   ArrowLeft,
   Sparkles,
@@ -64,21 +65,24 @@ const renderSummaryHeader = (children: React.ReactNode) => {
   }
 
   return (
-    <div className="flex items-center gap-2 mt-6 mb-3">
+    <div className="flex items-center gap-2 mt-12 mb-3 first:mt-0">
       <div className={`w-6 h-6 rounded-full ${bgColor} flex items-center justify-center`}>
         <span className={iconColor}>{icon}</span>
       </div>
-      <h4 className="text-sm font-medium">{children}</h4>
+      <h4 className="text-base font-bold">{content.replace("사실관계", "사실 관계")}</h4>
     </div>
   );
 };
 
 interface PrecedentDetailPageProps { }
 
+// Windows col-resize 동일 모양 (←|→) 검정 고정 커서
+const COL_RESIZE_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23222' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='5' x2='12' y2='19'/%3E%3Cpolyline points='7,9.5 4,12 7,14.5'/%3E%3Cline x1='4' y1='12' x2='10' y2='12'/%3E%3Cpolyline points='17,9.5 20,12 17,14.5'/%3E%3Cline x1='20' y1='12' x2='14' y2='12'/%3E%3C/svg%3E") 12 12, col-resize`;
+
 // AI 요약 로딩 단계
 const SUMMARY_STEPS: AgentStep[] = [
   { label: "결과 요약 중…", status: "pending" },
-  { label: "사실관계 분석 중…", status: "pending" },
+  { label: "사실 관계 분석 중…", status: "pending" },
   { label: "법리 분석 및 법원의 판단 과정 분석 중…", status: "pending" },
   { label: "실무 포인트 정리 중…", status: "pending" },
 ];
@@ -114,6 +118,39 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
   // 즐겨찾기 상태
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // AI 요약 패널 리사이즈
+  const [panelWidth, setPanelWidth] = useState<number | null>(null);
+  const isDraggingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = panelWidth ?? (containerRef.current ? containerRef.current.offsetWidth * 0.46 : 400);
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isDraggingRef.current || !containerRef.current) return;
+      const delta = startX - ev.clientX;
+      const maxWidth = containerRef.current.offsetWidth * 0.6;
+      const newWidth = Math.max(280, Math.min(startWidth + delta, maxWidth));
+      setPanelWidth(newWidth);
+    };
+
+    const onUp = () => {
+      isDraggingRef.current = false;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = COL_RESIZE_CURSOR;
+    document.body.style.userSelect = "none";
+  }, [panelWidth]);
 
   // 판례 상세 조회 (캐시 우선)
   useEffect(() => {
@@ -475,15 +512,21 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
           <ArrowLeft className="h-4 w-4 mr-2" />
           돌아가기
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleFavorite}
-          disabled={favoriteLoading}
-          className={`h-8 w-8 ${isFavorite ? "text-yellow-500 hover:text-yellow-600" : "text-muted-foreground hover:text-yellow-500"}`}
-        >
-          <Star className={`h-5 w-5 ${isFavorite ? "fill-current" : ""}`} />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              onClick={toggleFavorite}
+              disabled={favoriteLoading}
+              className={`h-9 w-9 p-0 translate-y-1 [&_svg]:!size-[1.35rem] ${isFavorite ? "text-yellow-500 hover:text-yellow-600" : "text-muted-foreground hover:text-yellow-500"}`}
+            >
+              <Star className={`h-8 w-8 ${isFavorite ? "fill-current" : ""}`} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" align="start" avoidCollisions={false} sideOffset={2} alignOffset={4} className="bg-popover text-muted-foreground text-[11px] px-2 py-0.5 rounded border border-border/50 shadow-none">
+            즐겨찾기
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Title Section */}
@@ -499,10 +542,10 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
       <Separator />
 
       {/* Content Area - Side by Side Layout */}
-      <div className="flex gap-6">
+      <div ref={containerRef} className="flex gap-14">
         {/* Full Text Section 줄 간격 (leading-loose / tight */}
-        <div className="prose prose-base max-w-none transition-all duration-300 flex-[6]">
-          <div className="whitespace-pre-wrap text-[0.95rem] leading-loose font-sans text-foreground/80">
+        <div className="prose prose-base max-w-none transition-all duration-300 flex-[6] min-w-0">
+          <div className="whitespace-pre-wrap text-[0.95rem] leading-loose font-sans text-foreground/80 text-justify">
             {(() => {
               const sections: { header: string | null; lines: string[] }[] = [];
               let currentSection: { header: string | null; lines: string[] } = { header: null, lines: [] };
@@ -531,7 +574,7 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
                         {section.header.replace(/[【】]/g, '')}
                       </h3>
                     )}
-                    <div className={`${section.header ? "pl-6 md:pl-10" : ""} space-y-0`}>
+                    <div className="space-y-0">
                       {section.header?.includes("참조조문") ? (
                         // 참조조문 섹션: 모든 줄을 합쳐서 한 번에 처리
                         <div className="min-h-[1.5rem]">
@@ -558,7 +601,7 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
 
                           return (
                             <React.Fragment key={lIndex}>
-                              <div className="min-h-[1.5rem]">
+                              <div className={trimmedLine ? "min-h-[1.5rem]" : "min-h-[0.25rem]"}>
                                 {isRefPrecedent ? (
                                   // 참조판례 섹션: 사건번호를 링크로 변환
                                   renderWithCaseLinks(cleanedLine)
@@ -584,18 +627,26 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
         </div>
 
         {/* Side Panel - AI 요약 또는 비교 분석 */}
-        <div className="flex-[4] min-w-[320px] flex-shrink-0 self-start sticky top-20">
+        <div
+          className="min-w-[280px] flex-shrink-0 self-start sticky top-20 relative"
+          style={{ width: panelWidth ?? undefined, flex: panelWidth ? "none" : "5" }}
+        >
+          {/* 좌측 외곽선 리사이즈 핸들 */}
+          <div
+            onMouseDown={onResizeStart}
+            className="absolute left-0 top-0 bottom-0 w-2 -ml-1 z-10 group"
+            style={{ cursor: COL_RESIZE_CURSOR }}
+          >
+            <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-0.5 rounded-full opacity-0 group-hover:opacity-100 bg-primary/40 transition-opacity" />
+          </div>
           <Card className="border-border/60 max-h-[calc(100vh-8rem)] flex flex-col shadow-sm">
             <CardHeader className="pb-3 shrink-0">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  {isFromSimilarCase ? "비교 분석" : "AI 요약"}
-                </CardTitle>
-                <Badge variant="secondary" className="text-xs font-normal">
-                  AI 분석
-                </Badge>
-              </div>
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                </div>
+                {isFromSimilarCase ? "비교 분석" : "AI 요약"}
+              </CardTitle>
               {isFromSimilarCase && (
                 <p className="text-xs text-muted-foreground mt-1">
                   현재 수임 사건과 이 판례의 비교 분석 결과입니다.
@@ -603,7 +654,7 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
               )}
             </CardHeader>
 
-            <CardContent className="overflow-y-auto pt-0">
+            <CardContent className="overflow-y-auto pt-6">
               {isFromSimilarCase && caseDetail && originCaseId ? (
                 /* 비교 분석 콘텐츠 */
                 <ComparisonAnalysisContent
@@ -620,19 +671,19 @@ export function PrecedentDetailPage({ }: PrecedentDetailPageProps) {
                       <AgentLoadingOverlay steps={summarySteps} />
                     </div>
                   ) : summary ? (
-                    <div className="space-y-6">
+                    <div>
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
                           h1: ({ children }) => renderSummaryHeader(children),
                           h2: ({ children }) => renderSummaryHeader(children),
                           p: ({ ...props }) => (
-                            <p className="text-sm text-muted-foreground leading-relaxed pl-8 mb-2" {...props} />
+                            <p className="text-[0.9375rem] text-muted-foreground leading-relaxed pl-4 mb-2 text-justify" {...props} />
                           ),
                           li: ({ ...props }) => (
-                            <div className="flex items-start gap-2 pl-8 mb-2">
+                            <div className="flex items-start gap-2 pl-4 mb-2">
                               <div className="w-1.5 h-1.5 rounded-full bg-primary/60 mt-2 shrink-0" />
-                              <p className="text-sm text-muted-foreground leading-relaxed">{props.children}</p>
+                              <p className="text-[0.9375rem] text-muted-foreground leading-relaxed text-justify">{props.children}</p>
                             </div>
                           ),
                           ul: ({ children }) => (

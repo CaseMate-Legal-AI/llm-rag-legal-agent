@@ -206,7 +206,7 @@ const templateContents: Record<string, string> = {
 <h2>청 구 원 인</h2>
 <h3>1. 당사자의 지위</h3>
 <p>[내용 작성]</p>
-<h3>2. 사실관계</h3>
+<h3>2. 사실 관계</h3>
 <p>[내용 작성]</p>
 <h3>3. 피고의 책임</h3>
 <p>[내용 작성]</p>
@@ -721,7 +721,7 @@ export function DocumentEditor({
       if (templateId === "criminal_complaint") {
         setDocumentContent(templateContents[templateId] || "");
       } else {
-        setDocumentContent(`<p style="text-align: center; color: #999; padding-top: 4rem; font-size: 1.1rem;">양식 준비 중</p>`);
+        setDocumentContent(`<p><br></p><p style="text-align: center;"><span style="color: #EF4444">양식 준비 중</span></p>`);
       }
     }
   };

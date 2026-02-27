@@ -10,6 +10,11 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { ArticleLink } from "@/components/legal/article-popup";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { apiFetch } from "@/lib/api";
 
 // API 응답 타입
@@ -193,7 +198,7 @@ export function CaseDetailPage({
   // 메인 탭 상태 (URL ?tab= 파라미터로 초기값 설정)
   const [activeTab, setActiveTab] = useState<string>(initialTab);
 
-  // 서브 탭 상태: "analysis" (AI 분석) | "original" (원문 보기)
+  // 서브 탭 상태: "analysis" (AI 사건 분석) | "original" (원문 확인)
   const [detailSubTab, setDetailSubTab] = useState<"analysis" | "original">("analysis");
 
   // 원문 편집 상태
@@ -528,7 +533,7 @@ export function CaseDetailPage({
 
   const ANALYSIS_STEPS: AgentStep[] = [
     { label: "사건 원문 확인 중…", status: "pending" },
-    { label: "사실관계 추출 중…", status: "pending" },
+    { label: "사실 관계 추출 중…", status: "pending" },
     { label: "법적 쟁점 도출 중…", status: "pending" },
     { label: "청구 내용 정리 중…", status: "pending" },
     { label: "관련 법령 검색 중…", status: "pending" },
@@ -1461,87 +1466,110 @@ export function CaseDetailPage({
         {/* ===== 사건 개요 탭 ===== */}
         <TabsContent value="overview" className="space-y-6 mt-6">
           {/* Case Details - Editable (Moved to top) */}
-          <Card className="border-border/60">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base font-medium">
-                  사건 상세
-                </CardTitle>
-                {/* 서브 탭에 따라 다른 버튼 표시 */}
+          <div>
+            {/* 견출지 탭 + 우측 액션 버튼 */}
+            <div className="flex items-end justify-between">
+              {/* 왼쪽: 탭 */}
+              <div className="flex items-end gap-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailSubTab("analysis");
+                    setIsEditingOriginal(false);
+                  }}
+                  className={`px-6 py-2.5 text-[13px] rounded-t-lg border border-b-0 transition-all ${
+                    detailSubTab === "analysis"
+                      ? "font-semibold text-primary bg-card border-border/60 border-t-2 border-t-primary shadow-[0_-2px_8px_rgba(0,0,0,0.04)] relative z-10 mb-[-1px]"
+                      : "text-muted-foreground/70 bg-muted/50 border-border/30 hover:text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  AI 사건 분석
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailSubTab("original");
+                    setIsEditingOverview(false);
+                  }}
+                  className={`px-6 py-2.5 text-[13px] rounded-t-lg border border-b-0 transition-all ${
+                    detailSubTab === "original"
+                      ? "font-semibold text-primary bg-card border-border/60 border-t-2 border-t-primary shadow-[0_-2px_8px_rgba(0,0,0,0.04)] relative z-10 mb-[-1px]"
+                      : "text-muted-foreground/70 bg-muted/50 border-border/30 hover:text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  원문 확인
+                </button>
+              </div>
+              {/* 우측: 액션 버튼 */}
+              <div className="flex flex-col items-end gap-1 pb-1">
+                <div className="flex items-center gap-2">
                 {detailSubTab === "analysis" ? (
-                  <div className="flex flex-col items-end gap-1">
-                    <div className="flex items-center gap-2">
-                      {/* AI 분석 갱신 버튼 + 말풍선 래퍼 */}
-                      <div className="relative">
-                        {analysisStale && (
-                          <div
-                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-10"
-                            style={{ animation: "stale-popup-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}
-                          >
-                            <div className="relative backdrop-blur-sm bg-white/95 border border-[#EF4444]/20 rounded-xl shadow-[0_4px_24px_rgba(239,68,68,0.1)] px-4 py-2.5 whitespace-nowrap">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />
-                                <p className="text-[12px] font-medium text-zinc-700">원문이 수정되었습니다</p>
-                                <button
-                                  onClick={() => setAnalysisStale(false)}
-                                  className="p-0.5 rounded-full text-zinc-300 hover:text-[#EF4444] hover:bg-[#EF4444]/5 transition-all"
-                                >
-                                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12" /></svg>
-                                </button>
-                              </div>
-                              {/* 말풍선 꼬리 */}
-                              <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white/95 border-r border-b border-[#EF4444]/20 rotate-45" />
-                            </div>
-                          </div>
-                        )}
-                        <Button
-                          size="sm"
-                          variant={analysisStale ? "default" : "outline"}
-                          disabled={isRefreshing || isSaving}
-                          onClick={refreshAnalysis}
-                          className={analysisStale
-                            ? "bg-[#EF4444] hover:bg-[#DC2626] text-white shadow-sm transition-all duration-200"
-                            : "transition-all duration-200"
-                          }
+                  <>
+                    {/* AI 분석 갱신 버튼 + 말풍선 래퍼 */}
+                    <div className="relative">
+                      {analysisStale && (
+                        <div
+                          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-10"
+                          style={{ animation: "stale-popup-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards" }}
                         >
-                          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                          AI 분석 갱신
-                        </Button>
-                      </div>
-                      {/* 편집/저장 버튼 */}
+                          <div className="relative backdrop-blur-sm bg-white/95 border border-[#EF4444]/20 rounded-xl shadow-[0_4px_24px_rgba(239,68,68,0.1)] px-4 py-2.5 whitespace-nowrap">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-[#EF4444] animate-pulse" />
+                              <p className="text-[12px] font-medium text-zinc-700">원문이 수정되었습니다</p>
+                              <button
+                                onClick={() => setAnalysisStale(false)}
+                                className="p-0.5 rounded-full text-zinc-300 hover:text-[#EF4444] hover:bg-[#EF4444]/5 transition-all"
+                              >
+                                <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                            {/* 말풍선 꼬리 */}
+                            <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-white/95 border-r border-b border-[#EF4444]/20 rotate-45" />
+                          </div>
+                        </div>
+                      )}
                       <Button
                         size="sm"
-                        variant="outline"
-                        disabled={isSaving || isRefreshing}
-                        onClick={() => {
-                          if (isEditingOverview) {
-                            saveSummary();
-                          } else {
-                            setIsEditingOverview(true);
-                          }
-                        }}
+                        variant={analysisStale ? "default" : "outline"}
+                        disabled={isRefreshing || isSaving}
+                        onClick={refreshAnalysis}
+                        className={analysisStale
+                          ? "bg-[#EF4444] hover:bg-[#DC2626] text-white shadow-sm transition-all duration-200"
+                          : "transition-all duration-200"
+                        }
                       >
-                        {isSaving ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : isEditingOverview ? (
-                          <>
-                            <Save className="h-4 w-4 mr-2" />
-                            저장
-                          </>
-                        ) : (
-                          <>
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            편집
-                          </>
-                        )}
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        AI 분석 갱신
                       </Button>
                     </div>
-                    {analyzedAt && (
-                      <p className="text-xs italic text-zinc-400 pr-2 mt-1">
-                        마지막 분석: {new Date(analyzedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
-                      </p>
-                    )}
-                  </div>
+                    {/* 편집/저장 버튼 */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isSaving || isRefreshing}
+                      onClick={() => {
+                        if (isEditingOverview) {
+                          saveSummary();
+                        } else {
+                          setIsEditingOverview(true);
+                        }
+                      }}
+                    >
+                      {isSaving ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : isEditingOverview ? (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          저장
+                        </>
+                      ) : (
+                        <>
+                          <Edit2 className="h-4 w-4 mr-2" />
+                          편집
+                        </>
+                      )}
+                    </Button>
+                  </>
                 ) : (
                   <Button
                     size="sm"
@@ -1551,7 +1579,6 @@ export function CaseDetailPage({
                       if (isEditingOriginal) {
                         saveDescription();
                       } else {
-                        // 편집 모드 진입 시 rawApiData로 폼 초기화
                         if (rawApiData) {
                           setEditFormData({
                             title: rawApiData.title || "",
@@ -1588,46 +1615,26 @@ export function CaseDetailPage({
                     )}
                   </Button>
                 )}
+                </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* 서브 탭 */}
-              <div className="flex gap-1 border-b border-border/60 pb-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDetailSubTab("analysis");
-                    setIsEditingOriginal(false);
-                  }}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${detailSubTab === "analysis"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-secondary"
-                    }`}
-                >
-                  AI 분석
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDetailSubTab("original");
-                    setIsEditingOverview(false);
-                  }}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${detailSubTab === "original"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-secondary"
-                    }`}
-                >
-                  원문 보기
-                </button>
+            </div>
+          <Card className="border-border/60 rounded-tl-none">
+            {detailSubTab === "analysis" && analyzedAt && (
+              <div className="flex justify-end px-6 pt-4 pb-0">
+                <p className="text-[11px] italic text-zinc-400">
+                  마지막 분석: {new Date(analyzedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })}
+                </p>
               </div>
+            )}
+            <CardContent className={`space-y-6 ${detailSubTab === "analysis" && analyzedAt ? "pt-2" : detailSubTab === "original" ? "pt-10" : "pt-6"}`}>
 
-              {/* 원문 보기 탭 콘텐츠 */}
+              {/* 원문 확인 탭 콘텐츠 */}
               {detailSubTab === "original" && (
                 <div className="space-y-6">
                   {isEditingOriginal ? (
                     <>
                       {/* 사건명 + 사건 종류 */}
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-6 border-b border-border/60">
                         <div className="col-span-2 space-y-2">
                           <Label className="text-sm font-medium">사건명</Label>
                           <Input
@@ -1652,8 +1659,6 @@ export function CaseDetailPage({
                           </Select>
                         </div>
                       </div>
-
-                      <Separator />
 
                       {/* 의뢰인 */}
                       <div className="space-y-2">
@@ -1752,9 +1757,9 @@ export function CaseDetailPage({
                       </div>
                     </>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {/* 기본 정보 읽기 모드 */}
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-6 border-b border-border/60">
                         <div className="col-span-2 space-y-1">
                           <p className="text-xs text-muted-foreground">사건명</p>
                           <p className="text-sm font-medium">{rawApiData?.title || "-"}</p>
@@ -1764,7 +1769,6 @@ export function CaseDetailPage({
                           <p className="text-sm font-medium">{rawApiData?.case_type || "-"}</p>
                         </div>
                       </div>
-                      <Separator />
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">의뢰인</p>
@@ -1850,7 +1854,7 @@ export function CaseDetailPage({
                   {/* Editable Fields */}
                   <div className="space-y-7 mt-6">
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">사건 요약</Label>
+                      <Label className="text-[15px] font-semibold text-primary">사건 요약</Label>
                       {isEditingOverview ? (
                         <Textarea
                           value={overviewData.summary}
@@ -1873,7 +1877,7 @@ export function CaseDetailPage({
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">사실 관계</Label>
+                      <Label className="text-[15px] font-semibold text-primary">사실 관계</Label>
                       {isEditingOverview ? (
                         <Textarea
                           value={overviewData.facts}
@@ -1898,33 +1902,40 @@ export function CaseDetailPage({
                       )}
                     </div>
 
-                    {/* AI 분석 법적 쟁점: 범죄명(빨간) + 쟁점(보라) 한 줄 표시 */}
+                    {/* AI 분석 법적 쟁점: 혐의 사항(빨간 태그) + 법적 쟁점(테마색 태그) */}
                     {((extractedIssues?.crime_names && extractedIssues.crime_names.length > 0) || (extractedIssues?.keywords && extractedIssues.keywords.length > 0)) && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[11px] text-gray-400 italic">AI 분석 법적 쟁점</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {extractedIssues?.crime_names?.map((name, index) => (
-                          <Badge
-                            key={`crime-${index}`}
-                            variant="default"
-                            className="font-normal text-xs bg-transparent text-[#EF4444]"
-                          >
-                            {name}
-                          </Badge>
+                          <Tooltip key={`crime-${index}`}>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant="secondary"
+                                className="font-normal text-xs text-[#EF4444] bg-[#EF4444]/8 border border-[#EF4444]/15 cursor-default"
+                              >
+                                {name}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" align="start" avoidCollisions={false} sideOffset={2} alignOffset={4} className="bg-popover text-muted-foreground text-[11px] px-2 py-0.5 rounded border border-border/50 shadow-none">혐의 사항</TooltipContent>
+                          </Tooltip>
                         ))}
                         {extractedIssues?.keywords?.map((keyword, index) => (
-                          <Badge
-                            key={`keyword-${index}`}
-                            variant="default"
-                            className="font-normal text-xs bg-transparent text-primary"
-                          >
-                            {keyword}
-                          </Badge>
+                          <Tooltip key={`keyword-${index}`}>
+                            <TooltipTrigger asChild>
+                              <Badge
+                                variant="secondary"
+                                className="font-normal text-xs text-slate-600 bg-slate-500/8 border border-slate-500/15 cursor-default"
+                              >
+                                {keyword}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" align="start" avoidCollisions={false} sideOffset={2} alignOffset={4} className="bg-popover text-muted-foreground text-[11px] px-2 py-0.5 rounded border border-border/50 shadow-none">법적 쟁점</TooltipContent>
+                          </Tooltip>
                         ))}
                       </div>
                     )}
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">청구 내용</Label>
+                      <Label className="text-[15px] font-semibold text-primary">청구 내용</Label>
                       {isEditingOverview ? (
                         <Textarea
                           value={overviewData.claims}
@@ -1938,7 +1949,7 @@ export function CaseDetailPage({
                           className="text-sm"
                         />
                       ) : (
-                        <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-1.5 [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:space-y-1.5 [&>p]:mb-2">
+                        <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none pl-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ul]:space-y-1.5 [&>ul]:mt-0 [&>ol]:list-decimal [&>ol]:pl-5 [&>ol]:space-y-1.5 [&>p]:mb-0 [&>p+ul]:mt-0.5">
                           <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {(() => {
                               // JSON 형식인지 확인
@@ -1968,7 +1979,7 @@ export function CaseDetailPage({
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">적용 법률</Label>
+                      <Label className="text-[15px] font-semibold text-primary">적용 법률</Label>
                       {isEditingOverview ? (
                         <div className="space-y-2">
                           {/* 수동 추가된 태그 표시 */}
@@ -2053,6 +2064,7 @@ export function CaseDetailPage({
               )}
             </CardContent>
           </Card>
+          </div>
 
           {/* Evidence Management - Compact List + Upload */}
           <Card
@@ -2068,9 +2080,12 @@ export function CaseDetailPage({
               }
             }}
           >
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardHeader className="flex flex-row items-center justify-between pb-5">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-base font-medium">증거 목록</CardTitle>
+                <CardTitle className="text-base font-medium flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  증거 목록
+                </CardTitle>
                 <Badge variant="secondary" className="text-xs font-normal">
                   {allEvidence.length}건
                 </Badge>
@@ -2231,8 +2246,8 @@ export function CaseDetailPage({
 
           {/* Similar Precedents from API */}
           <Card className="border-border/60">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
                 <CardTitle className="text-base font-medium flex items-center gap-2">
                   <Scale className="h-4 w-4" />
                   유사 판례
@@ -2304,55 +2319,56 @@ export function CaseDetailPage({
         {/* ===== 타임라인 탭 - Zigzag Design with Color Highlights ===== */}
         <TabsContent value="timeline" className="mt-6">
           <Card className="border-border/60">
-            <CardHeader className="pb-4 space-y-3">
-              <div className="flex items-center justify-between">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
                 <div>
-                  <CardTitle className="text-base font-medium">
-                    사건 경과 타임라인
+                  <CardTitle className="text-base font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    사건 경과
                   </CardTitle>
                   <p className="text-xs text-muted-foreground mt-1">
                     실제 발생한 사건들을 시간순으로 정리
                   </p>
                 </div>
+                {/* 버튼 줄 */}
                 <div className="flex items-center gap-3">
-                  {/* Layout toggle */}
-                  <div className="flex items-center bg-secondary/50 rounded-md p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setTimelineLayout("linear")}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${timelineLayout === "linear" ? "bg-background shadow-sm font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      목록
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTimelineLayout("zigzag")}
-                      className={`px-2 py-1 text-xs rounded transition-colors ${timelineLayout === "zigzag" ? "bg-background shadow-sm font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      지그재그
-                    </button>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={regenerateTimeline}
-                    disabled={timelineLoading}
+                <div className="flex items-center bg-secondary/50 rounded-md p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setTimelineLayout("linear")}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${timelineLayout === "linear" ? "bg-background shadow-sm font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                   >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${timelineLoading ? 'animate-spin' : ''}`} />
-                    새로고침
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsAddingEvent(true)}
+                    목록
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTimelineLayout("zigzag")}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${timelineLayout === "zigzag" ? "bg-background shadow-sm font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                   >
-                    <Plus className="h-4 w-4 mr-2" />
-                    추가
-                  </Button>
+                    지그재그
+                  </button>
                 </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={regenerateTimeline}
+                  disabled={timelineLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${timelineLoading ? 'animate-spin' : ''}`} />
+                  새로고침
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsAddingEvent(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  추가
+                </Button>
               </div>
-              {/* Legend - 별도 줄 */}
-              <div className="hidden sm:flex items-center gap-2 text-xs">
+              </div>
+              {/* Legend - 우측 정렬 */}
+              <div className="hidden sm:flex items-center justify-end gap-2 text-xs">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#6D5EF5]/10 text-[#6D5EF5] font-medium">
                   <User className="h-3 w-3" />
                   우리측
@@ -2647,10 +2663,10 @@ export function CaseDetailPage({
         <TabsContent value="relations" className="mt-6">
           <Card className="border-border/60 overflow-hidden">
             <CardHeader className="pb-3 border-b border-border/60">
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between">
                 <CardTitle className="text-base font-medium flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  인물 관계도 편집기
+                  인물 관계도
                 </CardTitle>
               </div>
             </CardHeader>

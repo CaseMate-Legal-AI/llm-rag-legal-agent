@@ -467,7 +467,7 @@ export function HomePage() {
                         >
                           <MarkdownMessage content={msg.content} onLegalRefClick={handleLegalRefClick} />
                           {msg.toolResults && msg.toolResults.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-border/30 text-xs text-muted-foreground">
+                            <div className="mt-2 pt-2 border-t border-border/30 text-sm text-muted-foreground">
                               📊 도구 {msg.toolResults.length}개 실행됨 · 결과 패널 열기
                             </div>
                           )}
@@ -541,6 +541,7 @@ export function HomePage() {
         <div style={{ width: panelWidth, flexShrink: 0 }}>
           <AgentResultsPanel
             toolResults={panelToolResults}
+            isStreaming={agent.isStreaming}
             onClose={() => {
               setPanelOpen(false);
               setSelectedMessageId(null);

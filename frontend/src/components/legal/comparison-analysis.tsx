@@ -38,7 +38,7 @@ interface SectionConfig {
 
 const COMPARISON_STEPS: AgentStep[] = [
   { label: "판례 원문 조회 중…", status: "pending" },
-  { label: "사실관계 대조 중…", status: "pending" },
+  { label: "사실 관계 대조 중…", status: "pending" },
   { label: "유사점 분석 중…", status: "pending" },
   { label: "차이점 도출 중…", status: "pending" },
   { label: "전략 포인트 정리 중…", status: "pending" },

@@ -590,12 +590,12 @@ export function NewCasePage({ }: NewCasePageProps) {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <div
-            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${step === "info"
+            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${step === "info"
               ? "bg-foreground text-background"
-              : "bg-foreground/20 text-foreground"
+              : "bg-primary text-white"
               }`}
           >
-            1
+            {step === "evidence" ? <Check className="h-3.5 w-3.5" /> : "1"}
           </div>
           <span
             className={`text-sm ${step === "info" ? "font-medium" : "text-muted-foreground"}`}
@@ -603,10 +603,10 @@ export function NewCasePage({ }: NewCasePageProps) {
             기본 정보
           </span>
         </div>
-        <div className="flex-1 h-px bg-border" />
+        <div className={`flex-1 h-px transition-colors ${step === "evidence" ? "bg-primary" : "bg-border"}`} />
         <div className="flex items-center gap-2">
           <div
-            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${step === "evidence"
+            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${step === "evidence"
               ? "bg-foreground text-background"
               : "bg-secondary text-muted-foreground"
               }`}
@@ -631,7 +631,7 @@ export function NewCasePage({ }: NewCasePageProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* 사건명 + 사건 종류 */}
+            {/* ── 사건 정보 섹션 ── */}
             <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-2 space-y-2">
                   <Label htmlFor="caseName" className="text-sm font-medium">
@@ -663,6 +663,9 @@ export function NewCasePage({ }: NewCasePageProps) {
               </div>
 
             <Separator />
+
+            {/* ── 당사자 정보 섹션 ── */}
+            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">당사자 정보</p>
 
             {/* 의뢰인 */}
             <div className="space-y-2">
@@ -720,7 +723,9 @@ export function NewCasePage({ }: NewCasePageProps) {
 
             <Separator />
 
-            {/* 주요 일정 */}
+            {/* ── 주요 일정 섹션 ── */}
+            <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">주요 일정</p>
+
             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 {/* 사건 발생일 */}
                 <div className="space-y-2">
@@ -882,7 +887,9 @@ export function NewCasePage({ }: NewCasePageProps) {
                     }
                   >
                     <div className="flex items-center justify-center gap-3">
-                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Upload className="h-4 w-4 text-primary" />
+                      </div>
                       <div className="text-left">
                         <p className="text-sm font-medium">파일 드래그 또는 클릭하여 업로드</p>
                         <p className="text-xs text-muted-foreground">

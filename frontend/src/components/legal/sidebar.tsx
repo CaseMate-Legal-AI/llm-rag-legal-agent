@@ -69,7 +69,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
             className="p-2 rounded-xl cursor-pointer hover:opacity-80 transition-opacity duration-150"
             style={{ background: "linear-gradient(135deg, #6D5EF5, #A78BFA)" }}
           >
-            <Scale className="h-[18px] w-[18px] text-white" />
+            <Scale className="h-[22px] w-[22px] text-white" />
           </button>
         ) : (
           <button
@@ -81,7 +81,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
               className="p-2 rounded-xl"
               style={{ background: "linear-gradient(135deg, #6D5EF5, #A78BFA)" }}
             >
-              <Scale className="h-[18px] w-[18px] text-white" />
+              <Scale className="h-[22px] w-[22px] text-white" />
             </div>
             <span className="text-base font-bold tracking-tight text-foreground">
               Casemate
@@ -104,7 +104,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
                   className="w-full flex items-center py-2.5 px-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors duration-150"
                 >
                   <span className="w-[52px] flex items-center justify-center shrink-0">
-                    <PanelLeftOpen className="h-[18px] w-[18px]" />
+                    <PanelLeftOpen className="h-[22px] w-[22px]" />
                   </span>
                 </button>
               </TooltipTrigger>
@@ -117,7 +117,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
               className="w-full flex items-center py-2.5 px-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors duration-150"
             >
               <span className="w-[52px] flex items-center justify-center shrink-0">
-                <PanelLeftClose className="h-[18px] w-[18px]" />
+                <PanelLeftClose className="h-[22px] w-[22px]" />
               </span>
               <span className="truncate text-sm">사이드바 닫기</span>
             </button>
@@ -138,7 +138,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
                 )}
               >
                 <span className="w-[52px] flex items-center justify-center shrink-0">
-                  <Icon className="h-[18px] w-[18px]" />
+                  <Icon className="h-[22px] w-[22px]" />
                 </span>
                 {!collapsed && <span className="truncate">{label}</span>}
               </NavLink>
@@ -162,6 +162,9 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
       {/* Spacer */}
       <div className="flex-1" />
 
+      {/* Divider */}
+      <div className="mx-4 border-t border-border/40" />
+
       {/* Footer - Settings & Logout */}
       <div className="py-3 pb-8 mt-2 space-y-0.5 px-2">
         {collapsed ? (
@@ -174,7 +177,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
                   className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
                 >
                   <span className="w-[52px] flex items-center justify-center shrink-0">
-                    <Settings className="h-[18px] w-[18px]" />
+                    <Settings className="h-[22px] w-[22px]" />
                   </span>
                 </button>
               </TooltipTrigger>
@@ -188,7 +191,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
                   className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
                 >
                   <span className="w-[52px] flex items-center justify-center shrink-0">
-                    <LogOut className="h-[18px] w-[18px]" />
+                    <LogOut className="h-[22px] w-[22px]" />
                   </span>
                 </button>
               </TooltipTrigger>
@@ -203,7 +206,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
               className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
             >
               <span className="w-[52px] flex items-center justify-center shrink-0">
-                <Settings className="h-[18px] w-[18px]" />
+                <Settings className="h-[22px] w-[22px]" />
               </span>
               <span className="truncate">설정</span>
             </button>
@@ -213,7 +216,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
               className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
             >
               <span className="w-[52px] flex items-center justify-center shrink-0">
-                <LogOut className="h-[18px] w-[18px]" />
+                <LogOut className="h-[22px] w-[22px]" />
               </span>
               <span className="truncate">로그아웃</span>
             </button>

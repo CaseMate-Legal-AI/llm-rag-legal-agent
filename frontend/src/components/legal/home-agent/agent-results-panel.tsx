@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Search, FileText, Scale, GitBranch, Clock, Users, Loader2, Files } from "lucide-react";
+import { X, Search, FileText, Scale, ArrowLeftRight, Clock, Users, Loader2, Files } from "lucide-react";
 import type { ToolResult } from "@/hooks/useAgentSSE";
 import { CaseListRenderer } from "./tool-renderers/case-list-renderer";
 import { CaseAnalysisRenderer } from "./tool-renderers/case-analysis-renderer";
@@ -16,6 +16,7 @@ import { ToolSkeleton } from "./tool-renderers/tool-skeleton";
 
 interface AgentResultsPanelProps {
   toolResults: ToolResult[];
+  isStreaming?: boolean;
   onClose: () => void;
 }
 
@@ -26,11 +27,11 @@ const TOOL_META: Record<string, { label: string; icon: React.ElementType; color:
   generate_relationship: { label: "관계도", icon: Users, color: "#10B981" },
   search_precedents: { label: "판례 검색", icon: Search, color: "#3B82F6" },
   summarize_precedent: { label: "판례 요약", icon: FileText, color: "#6366F1" },
-  compare_precedent: { label: "판례 비교", icon: GitBranch, color: "#EC4899" },
+  compare_precedent: { label: "판례 비교", icon: ArrowLeftRight, color: "#EC4899" },
   search_laws: { label: "법령 검색", icon: Search, color: "#14B8A6" },
-  get_case_evidence: { label: "증거 현황", icon: Files, color: "#F97316" },
-  get_case_similar_precedents: { label: "유사 판례", icon: GitBranch, color: "#EC4899" },
-  rag_search: { label: "RAG 검색", icon: Search, color: "#8B5CF6" },
+  get_case_evidence: { label: "증거 현황", icon: Files, color: "#1E40AF" },
+  get_case_similar_precedents: { label: "유사 판례", icon: Scale, color: "#EC4899" },
+  rag_search: { label: "관련 자료", icon: Search, color: "#8B5CF6" },
 };
 
 function getToolRenderer(tr: ToolResult) {
@@ -98,15 +99,25 @@ function getToolRenderer(tr: ToolResult) {
   return <RawTextRenderer text={structured?.text || tr.result || "결과 없음"} />;
 }
 
-export function AgentResultsPanel({ toolResults, onClose }: AgentResultsPanelProps) {
+export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentResultsPanelProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
+  const prevFirstIdRef = useRef<string | null>(null);
 
-  // 새 도구 결과가 추가될 때 자동으로 최신 탭으로 전환
+  // 결과 세트가 바뀌면 (새 질문, 다른 메시지 클릭 등) 첫 번째 탭으로 초기화
+  const firstResultId = toolResults[0]?.id || null;
   useEffect(() => {
-    if (toolResults.length > 0) {
+    if (firstResultId !== prevFirstIdRef.current) {
+      prevFirstIdRef.current = firstResultId;
+      setActiveTab(0);
+    }
+  }, [firstResultId]);
+
+  // 스트리밍 중 새 결과가 추가되면 최신 탭으로 자동 전환
+  useEffect(() => {
+    if (isStreaming && toolResults.length > 1) {
       setActiveTab(toolResults.length - 1);
     }
-  }, [toolResults.length]);
+  }, [toolResults.length, isStreaming]);
 
   if (toolResults.length === 0) return null;
 
@@ -148,16 +159,17 @@ export function AgentResultsPanel({ toolResults, onClose }: AgentResultsPanelPro
             <button
               key={tr.id}
               onClick={() => setActiveTab(idx)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
                 isActive
-                  ? "bg-primary/10 text-primary"
+                  ? "text-white shadow-sm"
                   : "text-muted-foreground hover:bg-muted/60"
               }`}
+              style={isActive ? { backgroundColor: meta.color } : undefined}
             >
               {tr.status === "loading" ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
-                <Icon className="h-3 w-3" style={{ color: isActive ? undefined : meta.color }} />
+                <Icon className="h-3 w-3" style={{ color: isActive ? "#fff" : meta.color }} />
               )}
               {tabLabel}
             </button>

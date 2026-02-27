@@ -1,4 +1,6 @@
 import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Clock, User, Tag, ExternalLink } from "lucide-react";
 
 interface TimelineEvent {
@@ -34,7 +36,7 @@ export function TimelineRenderer({ data, caseId }: Props) {
       {caseId && (
         <button
           onClick={() => navigate(`/cases/${caseId}`)}
-          className="w-full flex items-center justify-between px-3 py-2 mb-3 rounded-lg text-xs font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+          className="w-full flex items-center justify-between px-3 py-2 mb-3 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
         >
           <span>사건 상세 페이지에서 보기</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -55,24 +57,32 @@ export function TimelineRenderer({ data, caseId }: Props) {
             <div className="flex-1 rounded-xl border border-border/50 bg-card p-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {ev.date && (
-                  <span className="text-[10px] font-mono text-muted-foreground">{ev.date}</span>
+                  <span className="text-[13px] font-mono text-muted-foreground">{ev.date}</span>
                 )}
                 {ev.type && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${TYPE_COLORS[ev.type] || TYPE_COLORS["기타"]}`}>
+                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${TYPE_COLORS[ev.type] || TYPE_COLORS["기타"]}`}>
                     <Tag className="h-2.5 w-2.5 inline mr-0.5" />
                     {ev.type}
                   </span>
                 )}
                 {ev.actor && (
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                    <User className="h-2.5 w-2.5" />
+                  <span className="text-[13px] text-muted-foreground flex items-center gap-0.5">
+                    <User className="h-3 w-3" />
                     {ev.actor}
                   </span>
                 )}
               </div>
               <p className="text-sm font-medium text-foreground mt-1">{ev.title}</p>
               {ev.description && (
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{ev.description}</p>
+                <div className="text-sm text-muted-foreground mt-1 leading-relaxed
+                  prose prose-sm dark:prose-invert max-w-none
+                  prose-p:my-0.5 prose-p:text-sm prose-p:text-muted-foreground
+                  prose-strong:text-foreground prose-strong:font-semibold
+                  prose-li:text-sm prose-li:my-0.5
+                  prose-ul:my-0.5 prose-ol:my-0.5
+                ">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{ev.description}</ReactMarkdown>
+                </div>
               )}
             </div>
           </div>

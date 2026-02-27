@@ -11,7 +11,7 @@ import { PrecedentsPage } from '@/components/legal/pages/precedents-page'
 import { EvidenceDetailPage } from '@/components/legal/pages/evidence-detail-page'
 import { PrecedentDetailPage } from '@/components/legal/pages/precedent-detail-page'
 import { NewCasePage } from '@/components/legal/pages/new-case-page'
-import { EvidenceUploadPage } from '@/components/legal/pages/evidence-upload-page'
+import { FileManagerPage } from '@/components/legal/file-manager'
 import { SearchProvider } from '@/contexts/search-context'
 import { ChatProvider } from '@/contexts/chat-context'
 import './App.css'
@@ -136,7 +136,7 @@ function App() {
           <Route path="cases/:id" element={<CaseDetailPage />} />
           <Route path="precedents" element={<PrecedentsPage />} />
           <Route path="precedents/:id" element={<PrecedentDetailPage />} />
-          <Route path="evidence/upload" element={<EvidenceUploadPage />} />
+          <Route path="evidence/upload" element={<FileManagerPage />} />
           <Route path="evidence/:id" element={<EvidenceDetailPage />} />
           <Route path="new-case" element={<NewCasePage />} />
         </Route>

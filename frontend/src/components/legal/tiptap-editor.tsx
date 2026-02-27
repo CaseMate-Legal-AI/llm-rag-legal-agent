@@ -3,6 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TextStyle, Color } from "@tiptap/extension-text-style";
 import { Mark } from "@tiptap/core";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
@@ -52,6 +53,8 @@ export function TiptapEditor({
         heading: { levels: [1, 2, 3] },
       }),
       Underline,
+      TextStyle,
+      Color,
       AiFilledMark,
       TextAlign.configure({
         types: ["heading", "paragraph"],

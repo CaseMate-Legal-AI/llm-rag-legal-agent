@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { Loader2, X } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 interface ArticleData {
   law_name: string;
@@ -155,13 +156,22 @@ export function ArticleLink({
 
   return (
     <span className="relative inline">
-      <button
-        ref={triggerRef}
-        onClick={handleClick}
-        className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-      >
-        {children}
-      </button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            ref={triggerRef}
+            onClick={handleClick}
+            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+          >
+            {children}
+          </button>
+        </TooltipTrigger>
+        {!open && (
+          <TooltipContent side="bottom" align="start" avoidCollisions={false} sideOffset={2} alignOffset={4} className="bg-popover text-muted-foreground text-[11px] px-2 py-0.5 rounded border border-border/50 shadow-none">
+            클릭하여 조문 확인
+          </TooltipContent>
+        )}
+      </Tooltip>
 
       {open && (
         <div
