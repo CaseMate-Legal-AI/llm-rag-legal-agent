@@ -275,7 +275,7 @@ export function HomePage() {
 
   // ── Input Bar (공유) ──
   const inputBar = (
-    <div className="flex items-end gap-2 bg-card border border-border/50 rounded-2xl px-4 py-3 shadow-sm focus-within:border-primary/40 focus-within:shadow-md transition-all">
+    <div className="flex items-center gap-2 bg-card border border-border/50 rounded-2xl px-4 py-2.5 shadow-sm focus-within:border-primary/40 focus-within:shadow-md transition-all">
       <div className="flex-1 relative">
         <textarea
           ref={textareaRef}
@@ -285,11 +285,11 @@ export function HomePage() {
           onKeyDown={handleKeyDown}
           placeholder={hasMessages ? "메시지를 입력하세요..." : ""}
           rows={1}
-          className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none leading-relaxed"
+          className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none min-h-8 leading-8"
           style={{ maxHeight: 160 }}
         />
         {!hasMessages && !input && (
-          <div className="absolute inset-0 flex items-center pointer-events-none text-sm leading-relaxed" style={{ color: "#A0A7B5" }}>
+          <div className="absolute inset-0 pointer-events-none text-sm leading-8" style={{ color: "#A0A7B5" }}>
             {hintText}
           </div>
         )}
