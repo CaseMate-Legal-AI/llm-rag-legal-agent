@@ -70,6 +70,13 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
           throw new Error("사용자 정보를 가져오는데 실패했습니다");
         }
       } else {
+        const firmCodeNum = parseInt(firmCode, 10);
+        if (isNaN(firmCodeNum)) {
+          alert("회사 코드는 숫자로 입력해주세요.");
+          setIsLoading(false);
+          return;
+        }
+
         const response = await apiFetch("/api/v1/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -78,7 +85,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
             email,
             password,
             role,
-            firm_code: firmCode,
+            firm_code: firmCodeNum,
           }),
           skipAuth: true,
         });
