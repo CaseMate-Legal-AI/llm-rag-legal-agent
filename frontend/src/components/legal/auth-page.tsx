@@ -73,6 +73,13 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
           throw new Error("사용자 정보를 가져오는데 실패했습니다");
         }
       } else {
+        const firmCodeNum = parseInt(firmCode, 10);
+        if (isNaN(firmCodeNum)) {
+          alert("회사 코드는 숫자로 입력해주세요.");
+          setIsLoading(false);
+          return;
+        }
+
         const response = await apiFetch("/api/v1/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -81,14 +88,21 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
             email,
             password,
             role,
-            firm_code: firmCode,
+            firm_code: firmCodeNum,
           }),
           skipAuth: true,
         });
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || "회원가입에 실패했습니다");
+          // Pydantic 422 에러는 detail이 배열 형태
+          let errorMsg = "회원가입에 실패했습니다";
+          if (Array.isArray(data.detail)) {
+            errorMsg = data.detail.map((e: { msg: string }) => e.msg).join(", ");
+          } else if (typeof data.detail === "string") {
+            errorMsg = data.detail;
+          }
+          throw new Error(errorMsg);
         }
 
         localStorage.setItem("access_token", data.access_token);

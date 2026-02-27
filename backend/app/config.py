@@ -54,7 +54,7 @@ class CollectionConfig:
     # 컬렉션 이름
     LAWS = "laws_hybrid"
     PRECEDENTS_OPENAI = "precedents"
-    PRECEDENTS_KURE = "precedents_kure"
+    PRECEDENTS_KURE = "precedents_kure_q"
     SUMMARIES = "precedent_summaries"
 
     @classmethod
