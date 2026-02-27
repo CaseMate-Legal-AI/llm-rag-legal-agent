@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { HardDrive, Plus, Folder } from "lucide-react";
+import { HardDrive, Plus, Folder, Inbox } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { FileFolder, ManagedFile, DropPosition } from "../types";
 import { getChildFolders } from "../utils";
@@ -63,6 +63,7 @@ export function EvidenceSidebar({
 
   const rootChildren = getChildFolders(folders, "root");
   const showInlineInputAtRoot = inlineNewFolderParentId === "root";
+  const uncategorizedCount = files.filter((f) => f.folder === "root").length;
 
   const handleMoveFolderWithPosition = (
     folderId: string,
@@ -135,6 +136,22 @@ export function EvidenceSidebar({
           <span>전체</span>
           <span className="ml-auto text-[10px] text-muted-foreground/50 tabular-nums">
             {files.length}
+          </span>
+        </div>
+
+        {/* 미분류 */}
+        <div
+          onClick={() => onSelectFolder("uncategorized")}
+          className={`w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs transition-colors cursor-default ${
+            selectedFolder === "uncategorized"
+              ? "bg-secondary text-foreground font-medium"
+              : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+          }`}
+        >
+          <Inbox className="h-3.5 w-3.5 shrink-0" />
+          <span>미분류</span>
+          <span className="ml-auto text-[10px] text-muted-foreground/50 tabular-nums">
+            {uncategorizedCount}
           </span>
         </div>
 

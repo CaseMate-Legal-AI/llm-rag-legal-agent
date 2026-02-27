@@ -79,6 +79,7 @@ export function FileManagerPage() {
 
   // 폴더 이동 다이얼로그
   const [showMoveToFolderDialog, setShowMoveToFolderDialog] = useState(false);
+  const [filesToMove, setFilesToMove] = useState<string[]>([]);
 
   // 파일 업로드 input ref
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,7 +96,7 @@ export function FileManagerPage() {
   // 키보드 단축키: F2 이름 변경, Delete 폴더 삭제
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (pageMode !== "evidence" || selectedFolder === "root") return;
+      if (pageMode !== "evidence" || selectedFolder === "root" || selectedFolder === "uncategorized") return;
       if (fc.renamingFolderId || fc.inlineNewFolderParentId) return;
       if (e.key === "F2") {
         e.preventDefault();
@@ -200,17 +201,25 @@ export function FileManagerPage() {
     }
   };
 
-  // 폴더로 이동 (다이얼로그 열기)
+  // 폴더로 이동 (다이얼로그 열기) — 벌크 선택
   const handleOpenMoveToFolder = () => {
     if (selectedFiles.size === 0) return;
+    setFilesToMove(Array.from(selectedFiles));
+    setShowMoveToFolderDialog(true);
+  };
+
+  // 폴더로 이동 (단일 파일 — 액션 메뉴에서)
+  const handleSingleFileMoveToFolder = (file: ManagedFile) => {
+    setFilesToMove([file.id]);
     setShowMoveToFolderDialog(true);
   };
 
   // 폴더로 이동 실행
   const handleMoveToFolder = async (folderId: string) => {
-    const success = await ec.moveFilesToFolder(Array.from(selectedFiles), folderId);
+    const success = await ec.moveFilesToFolder(filesToMove, folderId);
     if (success) {
       setShowMoveToFolderDialog(false);
+      setFilesToMove([]);
       setSelectedFiles(new Set());
     }
   };
@@ -368,6 +377,7 @@ export function FileManagerPage() {
             onSelectAll={selectAllFiles}
             onToggleStar={ec.toggleStar}
             onLinkToCase={openLinkModal}
+            onMoveFileToFolder={handleSingleFileMoveToFolder}
             onOpenBulkLink={() => openLinkModal()}
             onDownload={ec.downloadFile}
             onDelete={handleDeleteFile}
@@ -429,9 +439,12 @@ export function FileManagerPage() {
 
       <MoveToFolderDialog
         open={showMoveToFolderDialog}
-        onOpenChange={setShowMoveToFolderDialog}
+        onOpenChange={(open) => {
+          setShowMoveToFolderDialog(open);
+          if (!open) setFilesToMove([]);
+        }}
         folders={fm.folders}
-        fileCount={selectedFiles.size}
+        fileCount={filesToMove.length}
         onMove={handleMoveToFolder}
       />
     </div>

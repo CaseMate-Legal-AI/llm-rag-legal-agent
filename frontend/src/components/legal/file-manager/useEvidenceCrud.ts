@@ -169,6 +169,7 @@ export function useEvidenceCrud({
   const moveFilesToFolder = useCallback(
     async (fileIds: string[], folderId: string) => {
       const categoryId = folderId === "root" ? null : parseInt(folderId.replace("cat-", ""));
+      let failCount = 0;
       try {
         for (const fileId of fileIds) {
           const response = await apiFetch(`/api/v1/evidence/${fileId}/move`, {
@@ -177,11 +178,16 @@ export function useEvidenceCrud({
             body: JSON.stringify({ category_id: categoryId }),
           });
           if (!response.ok) {
-            console.error(`파일 ${fileId} 이동 실패: ${response.statusText}`);
+            failCount++;
+            const errText = await response.text();
+            console.error(`파일 ${fileId} 이동 실패 (${response.status}):`, errText);
           }
         }
+        if (failCount > 0) {
+          alert(`${failCount}개 파일 이동 실패. 백엔드 서버를 재시작해 주세요.`);
+        }
         await fetchEvidences();
-        return true;
+        return failCount === 0;
       } catch (error) {
         console.error("파일 이동 실패:", error);
         alert(`파일 이동 실패: ${error}`);

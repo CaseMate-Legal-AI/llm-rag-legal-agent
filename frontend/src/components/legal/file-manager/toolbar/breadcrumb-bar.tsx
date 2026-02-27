@@ -22,6 +22,16 @@ export function BreadcrumbBar({
   caseFolders,
   selectedCaseFolder,
 }: BreadcrumbBarProps) {
+  if (pageMode === "evidence" && selectedFolder === "uncategorized") {
+    return (
+      <nav className="flex items-center gap-1 text-sm">
+        <span className="px-1.5 py-0.5 text-xs text-foreground font-medium">
+          미분류
+        </span>
+      </nav>
+    );
+  }
+
   if (pageMode === "evidence" && selectedFolder !== "root") {
     const currentFolderPath = getFolderPath(folders, selectedFolder);
     const pathWithoutRoot = currentFolderPath.slice(1);

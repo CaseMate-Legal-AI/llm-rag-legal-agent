@@ -21,6 +21,7 @@ interface EvidenceSubpageProps {
   onSelectAll: () => void;
   onToggleStar: (fileId: string) => void;
   onLinkToCase: (file: ManagedFile) => void;
+  onMoveFileToFolder: (file: ManagedFile) => void;
   onOpenBulkLink: () => void;
   onDownload: (fileId: string, fileName: string) => void;
   onDelete: (fileId: string) => void;
@@ -44,6 +45,7 @@ export function EvidenceSubpage({
   onSelectAll,
   onToggleStar,
   onLinkToCase,
+  onMoveFileToFolder,
   onOpenBulkLink,
   onDownload,
   onDelete,
@@ -54,10 +56,14 @@ export function EvidenceSubpage({
 }: EvidenceSubpageProps) {
   // 파일 필터링
   const filteredFiles = (() => {
-    let result =
-      selectedFolder !== "root"
-        ? getFilesInFolder(files, folders, selectedFolder)
-        : files;
+    let result: ManagedFile[];
+    if (selectedFolder === "uncategorized") {
+      result = files.filter((f) => f.folder === "root");
+    } else if (selectedFolder !== "root") {
+      result = getFilesInFolder(files, folders, selectedFolder);
+    } else {
+      result = files;
+    }
 
     if (filterMode === "starred") {
       result = result.filter((f) => f.starred);
@@ -105,6 +111,7 @@ export function EvidenceSubpage({
             onSelectAll={onSelectAll}
             onToggleStar={onToggleStar}
             onLinkToCase={onLinkToCase}
+            onMoveToFolder={onMoveFileToFolder}
             onDownload={onDownload}
             onDelete={onDelete}
           />
@@ -115,6 +122,7 @@ export function EvidenceSubpage({
             onToggleSelection={onToggleSelection}
             onToggleStar={onToggleStar}
             onLinkToCase={onLinkToCase}
+            onMoveToFolder={onMoveFileToFolder}
             onDownload={onDownload}
             onDelete={onDelete}
           />
