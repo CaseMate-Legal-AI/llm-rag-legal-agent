@@ -54,7 +54,7 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
   };
 
   if (!items || items.length === 0) {
-    return <p className="text-sm text-muted-foreground">연결된 증거가 없습니다.</p>;
+    return <p className="text-[15px] text-muted-foreground">연결된 증거가 없습니다.</p>;
   }
 
   return (
@@ -62,7 +62,7 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
       {caseId && (
         <button
           onClick={() => navigate(`/cases/${caseId}`)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[15px] font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
         >
           <span>사건 상세 페이지에서 보기</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -79,12 +79,12 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
             {/* 헤더 */}
             <div className="flex items-center gap-2">
               <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-sm font-semibold text-foreground truncate flex-1">
+              <span className="text-[15px] font-semibold text-foreground truncate flex-1">
                 {item.file_name}
               </span>
               {item.starred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 shrink-0" />}
               {item.risk_level && (
-                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${RISK_COLORS[item.risk_level] || ""}`}>
+                <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-medium ${RISK_COLORS[item.risk_level] || ""}`}>
                   {item.risk_level === "high" ? "핵심 증거" : item.risk_level === "medium" ? "일반 증거" : "참고"}
                 </span>
               )}
@@ -100,7 +100,7 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
             </div>
 
             {/* 메타 정보 */}
-            <div className="flex items-center gap-3 text-[13px] text-muted-foreground">
+            <div className="flex items-center gap-3 text-[14px] text-muted-foreground">
               <span>{item.doc_type}</span>
               {item.evidence_date && <span>{item.evidence_date}</span>}
               {item.has_analysis ? (
@@ -115,11 +115,11 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
             </div>
 
             {item.description && (
-              <div className="text-xs text-muted-foreground leading-relaxed
+              <div className="text-[13px] text-muted-foreground leading-relaxed
                 prose prose-sm dark:prose-invert max-w-none
-                prose-p:my-0.5 prose-p:text-xs prose-p:text-muted-foreground
+                prose-p:my-0.5 prose-p:text-[13px] prose-p:text-muted-foreground
                 prose-strong:text-foreground prose-strong:font-semibold
-                prose-li:text-xs prose-li:my-0.5
+                prose-li:text-[13px] prose-li:my-0.5
                 prose-ul:my-0.5 prose-ol:my-0.5
               ">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.description}</ReactMarkdown>
@@ -127,11 +127,11 @@ export function EvidenceListRenderer({ data, caseId }: Props) {
             )}
 
             {item.analysis_summary && (
-              <div className="text-xs text-card-foreground bg-muted/30 rounded-lg px-2.5 py-1.5 leading-relaxed
+              <div className="text-[13px] text-card-foreground bg-muted/30 rounded-lg px-2.5 py-1.5 leading-relaxed
                 prose prose-sm dark:prose-invert max-w-none
-                prose-p:my-0.5 prose-p:text-xs prose-p:text-card-foreground
+                prose-p:my-0.5 prose-p:text-[13px] prose-p:text-card-foreground
                 prose-strong:text-foreground prose-strong:font-semibold
-                prose-li:text-xs prose-li:my-0.5
+                prose-li:text-[13px] prose-li:my-0.5
                 prose-ul:my-0.5 prose-ol:my-0.5
               ">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>

@@ -508,7 +508,7 @@ def _verify_citations(response: AIMessage, tool_messages: list[ToolMessage]) -> 
             removed_citations.append(full)
 
     # 출처 라인에서 미확인 인용 제거
-    source_line_match = re.search(r'(📚\s*출처[:\s]*)(.*)', content)
+    source_line_match = re.search(r'(\*{0,2}출처\*{0,2}[:\s]*)(.*)', content)
     if source_line_match and removed_citations:
         prefix = source_line_match.group(1)
         sources = source_line_match.group(2)

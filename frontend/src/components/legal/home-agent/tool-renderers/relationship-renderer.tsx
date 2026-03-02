@@ -37,7 +37,7 @@ export function RelationshipRenderer({ data, caseId }: Props) {
   const relationships = (data?.relationships || []) as unknown as RelationshipEdge[];
 
   if (persons.length === 0) {
-    return <p className="text-sm text-muted-foreground">관계도 데이터가 없습니다.</p>;
+    return <p className="text-[15px] text-muted-foreground">관계도 데이터가 없습니다.</p>;
   }
 
   return (
@@ -45,7 +45,7 @@ export function RelationshipRenderer({ data, caseId }: Props) {
       {caseId && (
         <button
           onClick={() => navigate(`/cases/${caseId}`)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
+          className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-[15px] font-medium text-primary hover:bg-primary/10 transition-colors border border-primary/20"
         >
           <span>사건 상세 페이지에서 보기</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -53,7 +53,7 @@ export function RelationshipRenderer({ data, caseId }: Props) {
       )}
       {/* Persons */}
       <div>
-        <h4 className="text-sm font-semibold text-foreground mb-2">인물</h4>
+        <h4 className="text-[15px] font-semibold text-foreground mb-2">인물</h4>
         <div className="grid grid-cols-2 gap-2">
           {persons.map((p, idx) => {
             const colors = ROLE_COLORS[p.role] || "bg-muted text-muted-foreground border-border";
@@ -61,11 +61,11 @@ export function RelationshipRenderer({ data, caseId }: Props) {
               <div key={idx} className={`rounded-xl border p-2.5 ${colors}`}>
                 <div className="flex items-center gap-1.5">
                   <User className="h-3.5 w-3.5" />
-                  <span className="text-sm font-semibold">{p.name}</span>
+                  <span className="text-[15px] font-semibold">{p.name}</span>
                 </div>
-                <span className="text-xs opacity-80">{p.role}</span>
+                <span className="text-[13px] opacity-80">{p.role}</span>
                 {p.description && (
-                  <p className="text-xs mt-1 opacity-70 leading-relaxed">{p.description}</p>
+                  <p className="text-[13px] mt-1 opacity-70 leading-relaxed">{p.description}</p>
                 )}
               </div>
             );
@@ -76,12 +76,12 @@ export function RelationshipRenderer({ data, caseId }: Props) {
       {/* Relationships */}
       {relationships.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-foreground mb-2">관계</h4>
+          <h4 className="text-[15px] font-semibold text-foreground mb-2">관계</h4>
           <div className="space-y-1.5">
             {relationships.map((r, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2 text-sm"
+                className="flex items-center gap-2 rounded-lg border border-border/50 bg-card px-3 py-2 text-[15px]"
               >
                 {r.source && <span className="font-medium text-foreground">{r.source}</span>}
                 <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />

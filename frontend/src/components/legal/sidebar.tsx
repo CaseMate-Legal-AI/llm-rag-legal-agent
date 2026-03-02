@@ -74,7 +74,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
         ) : (
           <button
             type="button"
-            onClick={() => navigate("/")}
+            onClick={onToggle}
             className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity duration-150"
           >
             <div
@@ -84,7 +84,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
               <Scale className="h-[22px] w-[22px] text-white" />
             </div>
             <span className="text-base font-bold tracking-tight text-foreground">
-              Casemate
+              CaseMate AI
             </span>
           </button>
         )}
@@ -119,7 +119,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
               <span className="w-[52px] flex items-center justify-center shrink-0">
                 <PanelLeftClose className="h-[22px] w-[22px]" />
               </span>
-              <span className="truncate text-sm">사이드바 닫기</span>
+              <span className="truncate text-[16px]">사이드바 닫기</span>
             </button>
           )}
           {navItems.map(({ to, icon: Icon, label, guide }) => {
@@ -129,9 +129,9 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
                 key={to}
                 to={to}
                 {...(guide ? { "data-guide": guide } : {})}
-                onClick={to === "/" ? () => resetChat() : undefined}
+                onClick={undefined}
                 className={cn(
-                  "w-full flex items-center rounded-lg text-sm font-medium transition-colors duration-150 py-2.5 px-0",
+                  "w-full flex items-center rounded-lg text-[16px] font-medium transition-colors duration-150 py-2.5 px-0",
                   active
                     ? "bg-primary/10 text-primary font-semibold"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
@@ -174,7 +174,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
                 <button
                   type="button"
                   onClick={() => setSettingsOpen(true)}
-                  className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
+                  className="w-full flex items-center py-2.5 px-0 rounded-lg text-[16px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
                 >
                   <span className="w-[52px] flex items-center justify-center shrink-0">
                     <Settings className="h-[22px] w-[22px]" />
@@ -188,7 +188,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
                 <button
                   type="button"
                   onClick={onLogout}
-                  className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
+                  className="w-full flex items-center py-2.5 px-0 rounded-lg text-[16px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
                 >
                   <span className="w-[52px] flex items-center justify-center shrink-0">
                     <LogOut className="h-[22px] w-[22px]" />
@@ -203,7 +203,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
+              className="w-full flex items-center py-2.5 px-0 rounded-lg text-[16px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
             >
               <span className="w-[52px] flex items-center justify-center shrink-0">
                 <Settings className="h-[22px] w-[22px]" />
@@ -213,7 +213,7 @@ export function Sidebar({ collapsed, onToggle, onLogout }: SidebarProps) {
             <button
               type="button"
               onClick={onLogout}
-              className="w-full flex items-center py-2.5 px-0 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
+              className="w-full flex items-center py-2.5 px-0 rounded-lg text-[16px] font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors duration-150"
             >
               <span className="w-[52px] flex items-center justify-center shrink-0">
                 <LogOut className="h-[22px] w-[22px]" />

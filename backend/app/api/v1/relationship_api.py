@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from tool.database import get_db
-from tool.security import get_current_user
+from tool.security import get_current_user, block_demo_user
 from app.services.relationship_service import RelationshipService
 from app.models.relationship import CasePerson, CaseRelationship
 from app.models.evidence import Case
@@ -114,7 +114,7 @@ async def generate_relationships(
     case_id: str,
     force: bool = False,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     관계도 생성 또는 재생성
@@ -183,7 +183,7 @@ async def generate_relationships(
 async def delete_relationships(
     case_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     관계도 삭제
@@ -231,7 +231,7 @@ async def update_person_position(
     position_x: int,
     position_y: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     인물 위치 업데이트 (프론트엔드에서 드래그 시)
@@ -282,7 +282,7 @@ async def create_person(
     case_id: str,
     person_data: PersonCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     인물 추가
@@ -330,7 +330,7 @@ async def update_person(
     person_id: str,
     person_data: PersonUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     인물 정보 수정
@@ -384,7 +384,7 @@ async def delete_person(
     case_id: str,
     person_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     인물 삭제
@@ -440,7 +440,7 @@ async def create_relationship(
     case_id: str,
     rel_data: RelationshipCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     관계 추가
@@ -502,7 +502,7 @@ async def update_relationship(
     relationship_id: str,
     rel_data: RelationshipUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     관계 정보 수정
@@ -558,7 +558,7 @@ async def delete_relationship(
     case_id: str,
     relationship_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     관계 삭제

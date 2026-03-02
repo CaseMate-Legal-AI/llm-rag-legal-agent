@@ -13,7 +13,7 @@ from app.services.evidence_processor import EvidenceProcessor
 from openai import AsyncOpenAI
 
 from tool.database import get_db
-from tool.security import get_current_user
+from tool.security import get_current_user, block_demo_user
 from app.models.user import User
 from app.models import evidence as models
 
@@ -291,7 +291,7 @@ async def upload_file(
     case_id: int | None = None,  # 선택적: 사건 ID
     category_id: int | None = None,  # 선택적: 카테고리 ID
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # 로그인 확인
+    current_user: User = Depends(block_demo_user)  # 로그인 확인
 ):
     """
     증거파일 업로드
@@ -400,7 +400,7 @@ async def upload_file(
 async def delete_evidence(
     evidence_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거 파일 삭제
@@ -458,7 +458,7 @@ async def delete_evidence(
 async def delete_category(
     category_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거 카테고리 삭제 (하위 폴더 포함 재귀 삭제)
@@ -520,7 +520,7 @@ async def delete_category(
 async def create_category(
     request: CategoryCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거 카테고리 생성
@@ -581,7 +581,7 @@ async def rename_category(
     category_id: int,
     request: CategoryRenameRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거 카테고리 이름 변경
@@ -631,7 +631,7 @@ async def move_category(
     category_id: int,
     request: CategoryMoveRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거 카테고리를 다른 부모 카테고리로 이동
@@ -918,7 +918,7 @@ async def link_evidence_to_case(
     case_id: int,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거를 사건에 연결
@@ -981,7 +981,7 @@ async def unlink_evidence_from_case(
     evidence_id: int,
     case_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거와 사건 연결 해제 (파일 자체는 보존)
@@ -1022,7 +1022,7 @@ async def link_evidence_to_case_with_details(
     description: str | None = None,
     background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거를 사건에 연결 (날짜 및 설명 포함)
@@ -1100,7 +1100,7 @@ async def link_evidence_to_case_with_details(
 async def toggle_starred(
     evidence_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거 파일 즐겨찾기 토글
@@ -1146,7 +1146,7 @@ async def move_evidence_to_category(
     evidence_id: int,
     request: EvidenceMoveRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     증거 파일의 카테고리(폴더) 변경
