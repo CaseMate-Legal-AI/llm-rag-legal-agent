@@ -5,6 +5,7 @@ import { TutorialOverlay, type TutorialStep } from "@/components/legal/tutorial-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useChat } from "@/contexts/chat-context";
+import type { ToolResult } from "@/hooks/useAgentSSE";
 import { AgentResultsPanel } from "@/components/legal/home-agent/agent-results-panel";
 import { AgentStepsList } from "@/components/legal/home-agent/agent-steps-list";
 import { MarkdownMessage } from "@/components/legal/home-agent/markdown-message";
@@ -139,6 +140,8 @@ export function HomePage() {
   const panelAutoOpenedRef = useRef(false);
   // 선택된 메시지 ID (이전 대화의 도구 결과 보기용)
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  // 법률 인용 클릭 시 포커스할 탭 인덱스
+  const [focusTabIndex, setFocusTabIndex] = useState<number | null>(null);
 
   const userStartedTyping = input.length > 0 || hasMessages;
   const { hintText } = useTypingHint(!hasMessages, userStartedTyping);
@@ -236,15 +239,51 @@ export function HomePage() {
     [agent, addUserMessage]
   );
 
-  // 판례번호/법조문 클릭 → 우측 패널 열기
-  const handleLegalRefClick = useCallback(() => {
-    if (agent.toolResults.length > 0 && !panelOpen) {
+  // 판례번호/법조문 클릭 → 매칭 탭 찾기 → 패널 열기
+  const findMatchingTab = useCallback((ref: string, results: ToolResult[]): number => {
+    return results.findIndex((tr) => {
+      if (tr.status !== "done" || !tr.structured) return false;
+      const data = (tr.structured as { data?: unknown }).data;
+      if (!data) return false;
+
+      switch (tr.tool) {
+        case "rag_search": {
+          const rag = data as { precedents?: { case_number?: string }[]; laws?: { law_name?: string; article_number?: string | number }[] };
+          if (rag.precedents?.some((p) => p.case_number && ref.includes(p.case_number))) return true;
+          if (rag.laws?.some((l) => l.law_name && l.article_number && ref.includes(l.law_name) && ref.includes(`제${l.article_number}조`))) return true;
+          return false;
+        }
+        case "search_precedents":
+        case "get_case_similar_precedents": {
+          const arr = data as { case_number?: string }[];
+          return Array.isArray(arr) && arr.some((p) => p.case_number && ref.includes(p.case_number));
+        }
+        case "search_laws": {
+          const arr = data as { law_name?: string; article_number?: string | number }[];
+          return Array.isArray(arr) && arr.some((l) => l.law_name && l.article_number && ref.includes(l.law_name) && ref.includes(`제${l.article_number}조`));
+        }
+        default:
+          return false;
+      }
+    });
+  }, []);
+
+  const handleLegalRefClick = useCallback((ref: string, messageId?: string, msgToolResults?: ToolResult[]) => {
+    const results = msgToolResults && msgToolResults.length > 0 ? msgToolResults : agent.toolResults;
+    if (results.length === 0) return;
+
+    if (messageId) setSelectedMessageId(messageId);
+
+    const matchIdx = findMatchingTab(ref, results);
+    setFocusTabIndex(matchIdx >= 0 ? matchIdx : null);
+
+    if (!panelOpen) {
       if (containerRef.current) {
         setPanelWidth(containerRef.current.offsetWidth * DEFAULT_PANEL_RATIO);
       }
       setPanelOpen(true);
     }
-  }, [agent.toolResults.length, panelOpen]);
+  }, [agent.toolResults, panelOpen, findMatchingTab]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -458,7 +497,7 @@ export function HomePage() {
                               : "border-border/40 hover:border-border/60"
                             }`}
                         >
-                          <MarkdownMessage content={msg.content} onLegalRefClick={handleLegalRefClick} />
+                          <MarkdownMessage content={msg.content} onLegalRefClick={(ref) => handleLegalRefClick(ref, msg.id, msg.toolResults)} />
                           {msg.toolResults && msg.toolResults.length > 0 && (
                             <div className="group/cta mt-10 pt-2.5 border-t border-border/30 flex items-center gap-1.5 text-[14px] cursor-pointer">
                               <PanelRightOpen className="h-4 w-4 text-primary group-hover/cta:text-[#8B5CF6] transition-colors" />
@@ -493,7 +532,7 @@ export function HomePage() {
 
                   {agent.streamingText ? (
                     <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-card border border-border/40">
-                      <MarkdownMessage content={agent.streamingText} onLegalRefClick={handleLegalRefClick} />
+                      <MarkdownMessage content={agent.streamingText} onLegalRefClick={(ref) => handleLegalRefClick(ref)} />
                       <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom" />
                     </div>
                   ) : agent.steps.length === 0 ? (
@@ -538,9 +577,11 @@ export function HomePage() {
           <AgentResultsPanel
             toolResults={panelToolResults}
             isStreaming={agent.isStreaming}
+            focusTabIndex={focusTabIndex}
             onClose={() => {
               setPanelOpen(false);
               setSelectedMessageId(null);
+              setFocusTabIndex(null);
             }}
           />
         </div>

@@ -193,6 +193,7 @@ def route_after_agent(state: dict) -> str:
 def route_after_tools(state: dict) -> str:
     """Tools 실행 후 분기:
     - 단일 도구 + complex → generator (바로 답변, LLM 1회 절약)
+    - 단, 준비 단계 도구는 후속 작업이 필요하므로 agent로 복귀
     - 그 외 → agent (멀티홉 지원)
     """
     route = state.get("route")
@@ -203,13 +204,21 @@ def route_after_tools(state: dict) -> str:
     tool_count = len(last_ai.tool_calls) if last_ai else 0
 
     # complex + 단일 도구 → 바로 generator (Agent 재호출 스킵)
+    # 단, 준비 단계 도구는 항상 agent로 복귀 (멀티홉 체인 보장)
     if route == "complex" and tool_count == 1:
+        tool_name = last_ai.tool_calls[0].get("name", "") if last_ai else ""
+        if tool_name in _PREPARATORY_TOOLS:
+            logger.info(f"[Route] 준비 도구({tool_name}) → Agent 복귀")
+            return "agent"
         logger.info("[Route] 단일 도구 완료 → Generator 직행")
         return "generator"
 
     # 멀티홉 필요 (여러 도구 or simple)
     return "agent"
 
+
+# ── 준비 단계 도구 (후속 도구 호출이 필요한 도구) ─────────────
+_PREPARATORY_TOOLS = {"list_cases", "analyze_case", "get_case_evidence"}
 
 # ── 도구 반복 호출 가드 ────────────────────────────────────────
 

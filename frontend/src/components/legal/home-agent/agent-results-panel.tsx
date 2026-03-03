@@ -17,6 +17,7 @@ import { ToolSkeleton } from "./tool-renderers/tool-skeleton";
 interface AgentResultsPanelProps {
   toolResults: ToolResult[];
   isStreaming?: boolean;
+  focusTabIndex?: number | null;
   onClose: () => void;
 }
 
@@ -99,7 +100,7 @@ function getToolRenderer(tr: ToolResult) {
   return <RawTextRenderer text={structured?.text || tr.result || "결과 없음"} />;
 }
 
-export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentResultsPanelProps) {
+export function AgentResultsPanel({ toolResults, isStreaming, focusTabIndex, onClose }: AgentResultsPanelProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
   const prevFirstIdRef = useRef<string | null>(null);
 
@@ -111,6 +112,13 @@ export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentRe
       setActiveTab(0);
     }
   }, [firstResultId]);
+
+  // 외부에서 탭 전환 요청 (법률 인용 클릭)
+  useEffect(() => {
+    if (focusTabIndex != null && focusTabIndex >= 0 && focusTabIndex < toolResults.length) {
+      setActiveTab(focusTabIndex);
+    }
+  }, [focusTabIndex, toolResults.length]);
 
   // 스트리밍 중 새 결과가 추가되면 최신 탭으로 자동 전환
   useEffect(() => {
