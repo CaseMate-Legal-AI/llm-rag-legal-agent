@@ -772,8 +772,12 @@ export function CaseDetailPage({
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      setRelationshipData(data || { persons: [], relationships: [] });
+      const result = await response.json();
+      // 응답 형식: { message, data: { persons, relationships } }
+      setRelationshipData({
+        persons: result?.data?.persons || [],
+        relationships: result?.data?.relationships || [],
+      });
     } catch (error) {
       console.error("[Relationship] 재생성 실패:", error);
       alert("관계도 재생성에 실패했습니다.");
