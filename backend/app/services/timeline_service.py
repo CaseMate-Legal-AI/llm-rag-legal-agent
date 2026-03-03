@@ -125,7 +125,7 @@ class TimeLineService:
             )
 
         # Evidence 조회 (CaseEvidenceMapping을 통해 JOIN)
-        # content가 있는 것만 조회
+        # content가 있는 것만 조회, distinct()로 중복 제거
         evidences = self.db.query(Evidence).join(
             CaseEvidenceMapping,
             Evidence.id == CaseEvidenceMapping.evidence_id
@@ -133,7 +133,7 @@ class TimeLineService:
             CaseEvidenceMapping.case_id == self.case_id,
             Evidence.content.isnot(None),
             Evidence.content != ""
-        ).all()
+        ).distinct().all()
 
         # Case Summary 캐시 조회
         case_summary = self.db.query(CaseAnalysis).filter(
