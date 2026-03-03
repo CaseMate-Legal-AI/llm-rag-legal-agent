@@ -48,9 +48,10 @@ def get_supabase() -> Client:
         url = os.getenv("SUPABASE_URL")
         key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         if not url or not key:
+            logger.error("Supabase 환경 변수 누락: SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY")
             raise HTTPException(
                 status_code=503,
-                detail="Supabase 설정이 누락되었습니다 (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)"
+                detail="파일 저장소 연결에 실패했습니다. 잠시 후 다시 시도해주세요."
             )
         _supabase_client = create_client(url, key)
     return _supabase_client

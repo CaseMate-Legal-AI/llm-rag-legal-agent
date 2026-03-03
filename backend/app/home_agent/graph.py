@@ -4,6 +4,7 @@
 General (일반):   Router → General → END  (gpt-4o-mini 2회)
 Simple (명령형):  Router → Agent → Tools → Agent → END
 Complex (질문형): Router → Agent → Tools → Agent → ... → Generator → END  (멀티홉)
+Document (문서):  Router → Agent → Tools (navigate) → END  (문서 작성 페이지 이동)
 
 Self-RAG: Generator에서 인용 검증 (환각 방지)
 """
@@ -60,10 +61,11 @@ def build_graph(tools: list, checkpointer=None):
     # 엣지: General → END (gpt-4o-mini 1회로 종료)
     graph.add_edge("general", END)
 
-    # 조건부 엣지: Agent → (tool_calls→tools, simple→END, complex→generator)
+    # 조건부 엣지: Agent → (tool_calls→tools, simple→END, complex재시도→agent, complex→generator)
     graph.add_conditional_edges("agent", route_after_agent, {
         "tools": "tools",
         "end": END,
+        "agent": "agent",  # Complex 도구 없음 → 재시도
         "generator": "generator",
     })
 

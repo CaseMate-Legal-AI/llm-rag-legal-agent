@@ -341,7 +341,7 @@ export function EvidenceDetailPage() {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('파일 다운로드 실패:', error);
-      alert(`파일 다운로드 실패: ${error}`);
+      alert("파일 다운로드에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 

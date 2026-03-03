@@ -531,7 +531,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       });
     } catch (error) {
       console.error('증거 삭제 실패:', error);
-      alert(`증거 삭제 실패: ${error}`);
+      alert("파일 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setIsDeleting(false);
     }
@@ -556,7 +556,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       );
     } catch (error) {
       console.error('즐겨찾기 토글 실패:', error);
-      alert(`즐겨찾기 토글 실패: ${error}`);
+      alert("즐겨찾기 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -684,7 +684,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       setSelectedFiles(new Set());
     } catch (error) {
       console.error('사건 연결 실패:', error);
-      alert(`사건 연결 실패: ${error}`);
+      alert("사건 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -723,7 +723,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error('파일 다운로드 실패:', error);
-      alert(`파일 다운로드 실패: ${error}`);
+      alert("파일 다운로드에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -867,7 +867,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       await refreshCategories();
     } catch (error) {
       console.error('폴더 생성 실패:', error);
-      alert(`폴더 생성 실패: ${error}`);
+      alert("폴더 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       creatingFolderRef.current = false;
     }
@@ -915,7 +915,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       setFolders(prev => prev.map(f => f.id === folderId ? { ...f, name: newName } : f));
     } catch (error) {
       console.error('폴더 이름 변경 실패:', error);
-      alert(`폴더 이름 변경 실패: ${error}`);
+      alert("폴더 이름 변경에 실패했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       renamingRef.current = false;
     }
@@ -945,7 +945,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       if (selectedFolder === folderId) setSelectedFolder('root');
     } catch (error) {
       console.error('폴더 삭제 실패:', error);
-      alert(`폴더 삭제 실패: ${error}`);
+      alert("폴더 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -975,7 +975,7 @@ export function EvidenceUploadPage({}: EvidenceUploadPageProps) {
       await refreshCategories();
     } catch (error) {
       console.error('폴더 이동 실패:', error);
-      alert(`폴더 이동 실패: ${error}`);
+      alert("폴더 이동에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 

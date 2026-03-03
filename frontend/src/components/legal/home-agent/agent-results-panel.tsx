@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Search, FileText, Scale, ArrowLeftRight, Clock, Users, Loader2, Files } from "lucide-react";
+import { X, Search, FileText, Scale, ArrowLeftRight, Clock, Users, Loader2, Files, FileEdit } from "lucide-react";
 import type { ToolResult } from "@/hooks/useAgentSSE";
 import { CaseListRenderer } from "./tool-renderers/case-list-renderer";
 import { CaseAnalysisRenderer } from "./tool-renderers/case-analysis-renderer";
@@ -12,6 +12,7 @@ import { LawListRenderer } from "./tool-renderers/law-list-renderer";
 import { PrecedentSummaryRenderer } from "./tool-renderers/precedent-summary-renderer";
 import { RawTextRenderer } from "./tool-renderers/raw-text-renderer";
 import { EvidenceListRenderer } from "./tool-renderers/evidence-list-renderer";
+import { NavigationRenderer } from "./tool-renderers/navigation-renderer";
 import { ToolSkeleton } from "./tool-renderers/tool-skeleton";
 
 interface AgentResultsPanelProps {
@@ -32,6 +33,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ElementType; color:
   get_case_evidence: { label: "증거 현황", icon: Files, color: "#6366F1" },
   get_case_similar_precedents: { label: "유사 판례", icon: Scale, color: "#E11D48" },
   rag_search: { label: "관련 자료", icon: Search, color: "#9333EA" },
+  navigate_to_document_editor: { label: "문서 작성", icon: FileEdit, color: "#F59E0B" },
 };
 
 function getToolRenderer(tr: ToolResult) {
@@ -92,6 +94,8 @@ function getToolRenderer(tr: ToolResult) {
           </div>
         );
       }
+      case "navigate_to_document_editor":
+        return <NavigationRenderer data={data as { action: string; target: string; case_id: number; case_title: string; document_type: string; document_type_code: string; url: string }} />;
     }
   }
 

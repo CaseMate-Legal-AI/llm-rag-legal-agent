@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 # ── Structured Output 스키마 ──────────────────────────────────
 
 class RouteDecision(BaseModel):
-    route: Literal["general", "simple", "complex"] = Field(
-        description="Query classification: general, simple, or complex"
+    route: Literal["general", "simple", "complex", "document"] = Field(
+        description="Query classification: general, simple, complex, or document"
     )
 
 
@@ -177,7 +177,7 @@ def route_after_agent(state: dict) -> str:
     """Agent 출력 후 분기:
     - tool_calls 있으면 → tools
     - simple이고 tool_calls 없으면 → end (Agent가 직접 답변)
-    - complex이고 tool_calls 없으면 → generator
+    - complex이고 tool_calls 없으면 → 재시도 (1회) → generator
     """
     messages = state["messages"]
     last = messages[-1]
@@ -189,24 +189,55 @@ def route_after_agent(state: dict) -> str:
     # tool_calls가 없음 → 답변 완료
     if route == "simple":
         return "end"  # Simple은 Agent 답변으로 종료
-    return "generator"  # Complex는 Generator로
+
+    # Complex인데 도구 호출 없음 → 재시도 또는 generator
+    if route == "complex":
+        # 현재 턴에서 도구 없이 응답한 AIMessage 횟수 체크 (무한 루프 방지)
+        no_tool_count = 0
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                break
+            if isinstance(msg, AIMessage) and not (hasattr(msg, "tool_calls") and msg.tool_calls):
+                no_tool_count += 1
+
+        if no_tool_count >= 2:
+            # 이미 재시도함 → generator로
+            logger.warning("[Route] Complex 재시도 후에도 도구 호출 없음 → Generator")
+            return "generator"
+        else:
+            # 첫 번째 시도 → Agent 재시도
+            logger.warning("[Route] Complex 도구 호출 없음 → Agent 재시도")
+            return "agent"
+
+    return "generator"
 
 
 def route_after_tools(state: dict) -> str:
     """Tools 실행 후 분기:
+    - list_cases만 호출 → agent (사건 목록은 답변용 아님, 추가 도구 필요)
     - 단일 도구 + complex → generator (바로 답변, LLM 1회 절약)
     - 그 외 → agent (멀티홉 지원)
     """
     route = state.get("route")
     messages = state["messages"]
 
-    # 마지막 AIMessage의 tool_calls 수 확인
+    # 마지막 AIMessage의 tool_calls 확인
     last_ai = next((m for m in reversed(messages) if hasattr(m, "tool_calls") and m.tool_calls), None)
-    tool_count = len(last_ai.tool_calls) if last_ai else 0
+    if not last_ai:
+        return "agent"
+
+    tool_count = len(last_ai.tool_calls)
+    tool_names = [tc.get("name") for tc in last_ai.tool_calls]
+
+    # list_cases만 호출 → Agent로 돌아가서 추가 도구 호출
+    # (list_cases는 사건 목록 조회용, 답변용 데이터 아님)
+    if tool_names == ["list_cases"]:
+        logger.info("[Route] list_cases만 호출됨 → Agent로 돌아가서 추가 도구 호출")
+        return "agent"
 
     # complex + 단일 도구 → 바로 generator (Agent 재호출 스킵)
     if route == "complex" and tool_count == 1:
-        logger.info("[Route] 단일 도구 완료 → Generator 직행")
+        logger.info(f"[Route] 단일 도구({tool_names[0]}) 완료 → Generator 직행")
         return "generator"
 
     # 멀티홉 필요 (여러 도구 or simple)
@@ -510,30 +541,37 @@ def _verify_citations(response: AIMessage, tool_messages: list[ToolMessage]) -> 
             removed_citations.append(full)
 
     # 출처 라인에서 미확인 인용 제거
-    source_line_match = re.search(r'(\*{0,2}출처\*{0,2}[:\s]*)(.*)', content)
-    if source_line_match and removed_citations:
+    source_line_match = re.search(r'(\*{0,2}출처\*{0,2}[:\s]*)(.*)', content, re.DOTALL)
+    if source_line_match:
         prefix = source_line_match.group(1)
         sources = source_line_match.group(2)
 
-        # 미확인 판례번호 제거
+        # 미확인 판례번호 제거 (일반 텍스트 + 마크다운 링크 형식)
         for case_num in cited_cases:
             if case_num not in tool_text:
-                # "대법원 2007도8155" 또는 "2007도8155" 형태 제거
+                # 마크다운 링크 형식: [대법원 2007도8155](url) 또는 [2007도8155](url)
+                sources = re.sub(rf',?\s*\[대법원\s*{re.escape(case_num)}\]\([^)]*\)', '', sources)
+                sources = re.sub(rf',?\s*\[{re.escape(case_num)}\]\([^)]*\)', '', sources)
+                # 일반 텍스트 형식
                 sources = re.sub(rf',?\s*대법원\s*{re.escape(case_num)}', '', sources)
                 sources = re.sub(rf',?\s*{re.escape(case_num)}', '', sources)
 
-        # 미확인 법조문 제거
+        # 미확인 법조문 제거 (일반 텍스트 + 마크다운 링크 형식)
         for law_name, article_num in cited_laws:
             if law_name not in tool_text or f"제{article_num}조" not in tool_text:
                 full = f"{law_name} 제{article_num}조"
+                # 마크다운 링크 형식: [형법 제307조](url)
+                sources = re.sub(rf',?\s*\[{re.escape(full)}\]\([^)]*\)', '', sources)
+                # 일반 텍스트 형식
                 sources = re.sub(rf',?\s*{re.escape(full)}', '', sources)
 
         # 정리: 앞뒤 쉼표, 공백
         sources = re.sub(r'^[\s,]+|[\s,]+$', '', sources)
         sources = re.sub(r',\s*,', ',', sources)
+        sources = sources.strip()
 
         # 출처가 비었으면 출처 라인 전체 제거, 아니면 교체
-        if sources.strip():
+        if sources:
             content = content.replace(source_line_match.group(0), f"{prefix}{sources}")
         else:
             content = content.replace(source_line_match.group(0), '')

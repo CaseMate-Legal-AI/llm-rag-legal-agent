@@ -96,7 +96,7 @@ export function useFolderCrud({
       await refreshCategories();
     } catch (error) {
       console.error("폴더 생성 실패:", error);
-      alert(`폴더 생성 실패: ${error}`);
+      alert("폴더 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       creatingFolderRef.current = false;
     }
@@ -153,7 +153,7 @@ export function useFolderCrud({
       );
     } catch (error) {
       console.error("폴더 이름 변경 실패:", error);
-      alert(`폴더 이름 변경 실패: ${error}`);
+      alert("폴더 이름 변경에 실패했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       renamingRef.current = false;
       setFolderOperating(folderId, false);
@@ -187,7 +187,7 @@ export function useFolderCrud({
         if (selectedFolder === folderId) setSelectedFolder("root");
       } catch (error) {
         console.error("폴더 삭제 실패:", error);
-        alert(`폴더 삭제 실패: ${error}`);
+        alert("폴더 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
       } finally {
         setFolderOperating(folderId, false);
       }
@@ -229,7 +229,7 @@ export function useFolderCrud({
         await refreshCategories();
       } catch (error) {
         console.error("폴더 이동 실패:", error);
-        alert(`폴더 이동 실패: ${error}`);
+        alert("폴더 이동에 실패했습니다. 잠시 후 다시 시도해주세요.");
       } finally {
         setFolderOperating(folderId, false);
       }
