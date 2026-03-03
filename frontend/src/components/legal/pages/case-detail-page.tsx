@@ -756,118 +756,61 @@ export function CaseDetailPage({
   const regenerateRelationships = useCallback(async () => {
     if (!caseData) return;
 
-
     setRelationshipLoading(true);
-    setRelationshipSteps(RELATIONSHIP_STEPS);
 
-    const token = localStorage.getItem("access_token");
-    const url = `/api/v1/relationships/${caseData.id}/generate-stream?force=true`;
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(`/api/v1/relationships/${caseData.id}/generate?force=true`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-    const eventSource = new EventSource(
-      `${url}&token=${encodeURIComponent(token || '')}`
-    );
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "step") {
-          // 단계 진행 업데이트
-          setRelationshipSteps(prev =>
-            prev.map((step, idx) => {
-              if (idx < data.step) return { ...step, status: "done" };
-              if (idx === data.step) return { ...step, status: "in_progress", label: data.message || step.label };
-              return step;
-            })
-          );
-        } else if (data.type === "complete") {
-          // 완료 - 데이터 업데이트
-          const relationshipData = data.relationships || { persons: [], relationships: [] };
-          setRelationshipData(relationshipData);
-          setRelationshipSteps(prev => prev.map(s => ({ ...s, status: "done" })));
-          eventSource.close();
-          setRelationshipLoading(false);
-        } else if (data.type === "error") {
-          console.error("[Relationship] 에러:", data.message);
-          alert(data.message || "관계도 생성 중 오류가 발생했습니다.");
-          eventSource.close();
-          setRelationshipLoading(false);
-          setRelationshipSteps([]);
-        }
-      } catch (err) {
-        console.error("[Relationship] 메시지 파싱 실패:", err);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
-    };
 
-    eventSource.onerror = (error) => {
-      console.error("[Relationship] SSE 연결 오류:", error);
+      const data = await response.json();
+      setRelationshipData(data || { persons: [], relationships: [] });
+    } catch (error) {
+      console.error("[Relationship] 재생성 실패:", error);
       alert("관계도 재생성에 실패했습니다.");
-      eventSource.close();
+    } finally {
       setRelationshipLoading(false);
-      setRelationshipSteps([]);
-    };
+    }
   }, [caseData]);
 
 
-  // 타임라인 재생성 (SSE 버전)
-  const TIMELINE_STEPS: AgentStep[] = [
-    { label: "사건 정보 분석 중…", status: "pending" },
-    { label: "타임라인 이벤트 추출 중…", status: "pending" },
-    { label: "시간순 정렬 및 저장 중…", status: "pending" },
-  ];
-
+  // 타임라인 재생성
   const regenerateTimeline = async () => {
     if (!caseData) return;
 
-
     setTimelineLoading(true);
-    setTimelineSteps(TIMELINE_STEPS);
 
-    const token = localStorage.getItem("access_token");
-    const url = `/api/v1/timeline/${caseData.id}/generate-stream?force=true`;
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(`/api/v1/timeline/${caseData.id}/generate?force=true`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-    const eventSource = new EventSource(
-      `${url}&token=${encodeURIComponent(token || '')}`
-    );
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "step") {
-          // 단계 진행 업데이트
-          setTimelineSteps(prev =>
-            prev.map((step, idx) => {
-              if (idx < data.step) return { ...step, status: "done" };
-              if (idx === data.step) return { ...step, status: "in_progress", label: data.message || step.label };
-              return step;
-            })
-          );
-        } else if (data.type === "complete") {
-          // 완료 - 데이터 업데이트
-          setTimelineEvents(data.timelines || []);
-          setTimelineSteps(prev => prev.map(s => ({ ...s, status: "done" })));
-          eventSource.close();
-          setTimelineLoading(false);
-        } else if (data.type === "error") {
-          console.error("[Timeline] 에러:", data.message);
-          alert(data.message || "타임라인 생성 중 오류가 발생했습니다.");
-          eventSource.close();
-          setTimelineLoading(false);
-          setTimelineSteps([]);
-        }
-      } catch (err) {
-        console.error("[Timeline] 메시지 파싱 실패:", err);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
       }
-    };
 
-    eventSource.onerror = (error) => {
-      console.error("[Timeline] SSE 연결 오류:", error);
+      const data = await response.json();
+      setTimelineEvents(data || []);
+    } catch (error) {
+      console.error("[Timeline] 재생성 실패:", error);
       alert("타임라인 재생성에 실패했습니다.");
-      eventSource.close();
+    } finally {
       setTimelineLoading(false);
-      setTimelineSteps([]);
-    };
+    }
   };
 
   // 타임라인 데이터 가져오기 (caseData 설정 시)
