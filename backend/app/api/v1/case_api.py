@@ -18,7 +18,7 @@ from datetime import date, datetime
 from openai import OpenAI, AsyncOpenAI
 
 from tool.database import get_db, SessionLocal
-from tool.security import get_current_user
+from tool.security import get_current_user, block_demo_user
 from app.models.user import User
 from app.models.evidence import Case, CaseAnalysis, Evidence, CaseEvidenceMapping, EvidenceAnalysis
 from app.services.timeline_service import TimeLineService
@@ -97,7 +97,7 @@ class CaseListItem(BaseModel):
 async def create_case(
     request: CaseCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     새 사건 생성
@@ -816,7 +816,7 @@ async def update_case(
     case_id: int,
     request: CaseUpdateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     사건 정보 수정
@@ -964,7 +964,7 @@ async def update_case_summary(
 async def delete_case(
     case_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     사건 삭제 (소프트 삭제)

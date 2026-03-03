@@ -73,3 +73,17 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
 
     return user
+
+
+# 데모 계정 쓰기 차단 의존성
+_DEMO_FIRM_ID = int(os.getenv("DEMO_FIRM_ID", "0"))
+
+
+def block_demo_user(current_user=Depends(get_current_user)):
+    """데모 계정의 데이터 변경을 차단합니다. get_current_user 대신 사용."""
+    if _DEMO_FIRM_ID and current_user.firm_id == _DEMO_FIRM_ID:
+        raise HTTPException(
+            status_code=403,
+            detail="데모 계정은 데이터 변경이 제한됩니다. 정식 계정으로 이용해주세요.",
+        )
+    return current_user

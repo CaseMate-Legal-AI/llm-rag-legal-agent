@@ -8,7 +8,7 @@ from app.models.timeline import TimeLine
 from app.models.evidence import Case, Evidence
 from app.models.user import User
 from tool.database import SessionLocal
-from tool.security import get_current_user
+from tool.security import get_current_user, block_demo_user
 
 logger = logging.getLogger(__name__)
 
@@ -171,7 +171,7 @@ async def create_timeline(
     case_id: str,
     request: TimelineRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     타임라인 이벤트 추가
@@ -228,7 +228,7 @@ async def update_timeline(
     timeline_id: int,
     request: TimelineRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     타임라인 이벤트 수정
@@ -276,7 +276,7 @@ async def update_timeline(
 
 
 @router.delete("/{timeline_id}")
-async def delete_timeline(timeline_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def delete_timeline(timeline_id: int, db: Session = Depends(get_db), current_user: User = Depends(block_demo_user)):
     """
     타임라인 이벤트 삭제
 
@@ -315,7 +315,7 @@ async def generate_timeline(
     case_id: str,
     force: bool = True,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(block_demo_user)
 ):
     """
     타임라인 강제 재생성

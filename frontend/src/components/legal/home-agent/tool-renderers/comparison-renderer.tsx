@@ -17,7 +17,7 @@ interface Props {
 export function ComparisonRenderer({ data }: Props) {
   const d = data as unknown as ComparisonData;
   if (!d) {
-    return <p className="text-sm text-muted-foreground">비교 분석 결과가 없습니다.</p>;
+    return <p className="text-[15px] text-muted-foreground">비교 분석 결과가 없습니다.</p>;
   }
 
   const sections = [
@@ -35,15 +35,15 @@ export function ComparisonRenderer({ data }: Props) {
           <div key={s.label} className="rounded-xl border border-border/50 bg-card overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
               <s.icon className="h-3.5 w-3.5" style={{ color: s.color }} />
-              <span className="text-sm font-semibold text-foreground">{s.label}</span>
+              <span className="text-[15px] font-semibold text-foreground">{s.label}</span>
             </div>
-            <div className="px-3 py-2.5 text-sm text-card-foreground leading-relaxed
+            <div className="px-3 py-2.5 text-[15px] text-card-foreground leading-relaxed
               prose prose-sm dark:prose-invert max-w-none
-              prose-p:my-1 prose-p:text-sm prose-p:text-card-foreground
+              prose-p:my-1 prose-p:text-[15px] prose-p:text-card-foreground
               prose-strong:text-foreground prose-strong:font-semibold
-              prose-li:text-sm prose-li:my-0.5
+              prose-li:text-[15px] prose-li:my-0.5
               prose-ul:my-1 prose-ol:my-1
-              prose-headings:text-sm prose-headings:font-semibold prose-headings:my-1
+              prose-headings:text-[15px] prose-headings:font-semibold prose-headings:my-1
             ">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{s.content}</ReactMarkdown>
             </div>

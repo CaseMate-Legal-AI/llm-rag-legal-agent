@@ -1,7 +1,5 @@
-import React from "react";
-import { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -11,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Scale, Loader2, FileText, Search, MessageSquare, AlertCircle } from "lucide-react";
+import { Scale, Loader2, FileText, Search, MessageSquare, AlertCircle, Eye, EyeOff, X, ArrowLeft } from "lucide-react";
 
 interface AuthPageProps {
   onLogin: () => void | Promise<void>;
@@ -24,6 +22,8 @@ const features = [
   { icon: MessageSquare, text: "AI 어시스턴트 · 법률 업무 자동화" },
 ];
 
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
 export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -32,22 +32,184 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
   const [role, setRole] = useState("");
   const [firmCode, setFirmCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingTarget, setLoadingTarget] = useState<"login" | "signup" | "demo" | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 1-A: 비밀번호 보기/숨기기
+  const [showPassword, setShowPassword] = useState(false);
 
+  // 1-B: 필드별 blur 검증 에러
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // 1-C: 모드 전환 시 autofocus
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  // 1-E: 관리자 코드 모달
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminCode, setAdminCode] = useState("");
+  const [adminCodeError, setAdminCodeError] = useState("");
+  const adminCodeRef = useRef<HTMLInputElement>(null);
+
+  // 1-C: 모드 전환 시 이메일 필드에 autofocus
+  useEffect(() => {
+    emailRef.current?.focus();
+  }, [mode]);
+
+  // 관리자 코드 모달 열릴 때 autofocus
+  useEffect(() => {
+    if (showAdminModal) {
+      setTimeout(() => adminCodeRef.current?.focus(), 100);
+    }
+  }, [showAdminModal]);
+
+  // 1-B: 필드별 blur 검증
+  const validateField = (field: string, value: string) => {
+    const errors = { ...fieldErrors };
+    switch (field) {
+      case "email":
+        if (value && !EMAIL_RE.test(value)) {
+          errors.email = "올바른 이메일 형식이 아닙니다";
+        } else {
+          delete errors.email;
+        }
+        break;
+      case "password":
+        if (value) {
+          if (value.length < 8) {
+            errors.password = "8자 이상 입력해주세요";
+          } else if (!/[a-zA-Z]/.test(value)) {
+            errors.password = "영문자를 1자 이상 포함해주세요";
+          } else if (!/\d/.test(value)) {
+            errors.password = "숫자를 1자 이상 포함해주세요";
+          } else {
+            delete errors.password;
+          }
+        } else {
+          delete errors.password;
+        }
+        break;
+      case "firmCode":
+        if (value && isNaN(Number(value))) {
+          errors.firmCode = "숫자만 입력 가능합니다";
+        } else {
+          delete errors.firmCode;
+        }
+        break;
+    }
+    setFieldErrors(errors);
+  };
+
+  // 로그인 처리 (일반 + 데모 공용)
+  const handleLoginSuccess = async (data: { access_token: string }) => {
+    localStorage.setItem("access_token", data.access_token);
+
+    const userResponse = await apiFetch("/api/v1/me");
+    if (userResponse.ok) {
+      const userData = await userResponse.json();
+      localStorage.setItem("user_email", userData.email);
+      localStorage.setItem("user_id", userData.id);
+      await onLogin();
+    } else {
+      throw new Error("사용자 정보를 가져오는데 실패했습니다");
+    }
+  };
+
+  // 1-D: 데모 체험 로그인
+  const handleDemoLogin = async () => {
     setErrorMessage("");
+    setIsLoading(true);
+    setLoadingTarget("demo");
+    try {
+      const response = await apiFetch("/api/v1/demo-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        skipAuth: true,
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || "데모 로그인에 실패했습니다");
+      }
+      await handleLoginSuccess(data);
+    } catch (error) {
+      console.error("데모 로그인 실패:", error);
+      setErrorMessage(
+        error instanceof Error ? error.message : "데모 로그인 중 오류가 발생했습니다."
+      );
+    } finally {
+      setIsLoading(false);
+      setLoadingTarget(null);
+    }
+  };
 
-    if (mode === "signup" && !firmCode.trim()) {
-      setErrorMessage("회사 코드를 입력해주세요.");
+  // 회원가입 실제 전송 (관리자 코드 포함)
+  const submitSignup = async (code: string) => {
+    const firmCodeNum = parseInt(firmCode, 10);
+    if (isNaN(firmCodeNum)) {
+      setAdminCodeError("회사 코드가 올바르지 않습니다.");
       return;
     }
 
     setIsLoading(true);
+    setLoadingTarget("signup");
+    setAdminCodeError("");
 
     try {
-      if (mode === "login") {
+      const response = await apiFetch("/api/v1/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+          firm_code: firmCodeNum,
+          admin_code: code,
+        }),
+        skipAuth: true,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        let errorMsg = "회원가입에 실패했습니다";
+        if (Array.isArray(data.detail)) {
+          errorMsg = data.detail.map((e: { msg: string }) => e.msg).join(", ");
+        } else if (typeof data.detail === "string") {
+          errorMsg = data.detail;
+        }
+        // 관리자 코드 에러는 모달 안에서 표시
+        if (response.status === 403) {
+          setAdminCodeError(errorMsg);
+          setIsLoading(false);
+          return;
+        }
+        throw new Error(errorMsg);
+      }
+
+      localStorage.setItem("access_token", data.access_token);
+      localStorage.setItem("user_email", data.email);
+      localStorage.setItem("user_id", data.user_id);
+      setShowAdminModal(false);
+      await onLogin();
+    } catch (error) {
+      console.error("회원가입 실패:", error);
+      setShowAdminModal(false);
+      setErrorMessage(
+        error instanceof Error ? error.message : "회원가입 중 오류가 발생했습니다."
+      );
+    } finally {
+      setIsLoading(false);
+      setLoadingTarget(null);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+
+    if (mode === "login") {
+      setIsLoading(true);
+      setLoadingTarget("login");
+      try {
         const response = await apiFetch("/api/v1/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -60,67 +222,25 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
           throw new Error(data.detail || "로그인에 실패했습니다");
         }
 
-        localStorage.setItem("access_token", data.access_token);
-
-        const userResponse = await apiFetch("/api/v1/me");
-
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          localStorage.setItem("user_email", userData.email);
-          localStorage.setItem("user_id", userData.id);
-          await onLogin();
-        } else {
-          throw new Error("사용자 정보를 가져오는데 실패했습니다");
-        }
-      } else {
-        const firmCodeNum = parseInt(firmCode, 10);
-        if (isNaN(firmCodeNum)) {
-          alert("회사 코드는 숫자로 입력해주세요.");
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await apiFetch("/api/v1/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            email,
-            password,
-            role,
-            firm_code: firmCodeNum,
-          }),
-          skipAuth: true,
-        });
-        const data = await response.json();
-
-        if (!response.ok) {
-          // Pydantic 422 에러는 detail이 배열 형태
-          let errorMsg = "회원가입에 실패했습니다";
-          if (Array.isArray(data.detail)) {
-            errorMsg = data.detail.map((e: { msg: string }) => e.msg).join(", ");
-          } else if (typeof data.detail === "string") {
-            errorMsg = data.detail;
-          }
-          throw new Error(errorMsg);
-        }
-
-        localStorage.setItem("access_token", data.access_token);
-        localStorage.setItem("user_email", data.email);
-        localStorage.setItem("user_id", data.user_id);
-        await onLogin();
+        await handleLoginSuccess(data);
+      } catch (error) {
+        console.error("로그인 실패:", error);
+        setErrorMessage(
+          error instanceof Error ? error.message : "로그인 중 오류가 발생했습니다."
+        );
+      } finally {
+        setIsLoading(false);
+        setLoadingTarget(null);
       }
-    } catch (error) {
-      console.error("요청 실패:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : mode === "login"
-            ? "로그인 중 오류가 발생했습니다."
-            : "회원가입 중 오류가 발생했습니다.";
-      setErrorMessage(errorMessage);
-    } finally {
-      setIsLoading(false);
+    } else {
+      // 회원가입: 관리자 코드 모달 열기
+      if (!firmCode.trim()) {
+        setErrorMessage("회사 코드를 입력해주세요.");
+        return;
+      }
+      setAdminCode("");
+      setAdminCodeError("");
+      setShowAdminModal(true);
     }
   };
 
@@ -142,17 +262,16 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
         }}
       >
         {/* Content */}
-        <div className="relative z-[30] flex flex-col items-start h-full pl-24 pr-16" style={{ paddingTop: 'calc(50vh - 160px)' }}>
+        <div className="relative z-[30] flex flex-col justify-center items-start h-full pl-24 pr-16 -mt-[46px]">
           {/* Tagline & Features */}
-          <div className="space-y-10">
+          <div className="space-y-[72px]">
             <div>
-              <h2 className="text-white text-[44px] font-bold tracking-tight leading-[1.2]">
-                법률 업무의 새로운 기준
+              <Scale className="h-11 w-11 text-white mb-[33px]" strokeWidth={1.8} />
+              <h2 className="text-white text-[52px] font-bold tracking-normal leading-[1.1]">
+                CaseMate AI
               </h2>
-              <p className="text-white/80 mt-5 text-lg leading-relaxed">
-                당신이 사건에 집중하는 동안,
-                <br />
-                AI 비서가 증거와 판례들을 정리합니다.
+              <p className="text-white/70 mt-6 text-[21.5px] tracking-wide">
+                사건 분석부터 판례 리서치까지, AI 어시스턴트가 함께합니다.
               </p>
             </div>
 
@@ -160,9 +279,9 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
               {features.map((item) => (
                 <div key={item.text} className="flex items-center gap-3.5">
                   <div className="p-2.5 rounded-lg bg-white/10">
-                    <item.icon className="h-5 w-5 text-white/90" />
+                    <item.icon className="h-5 w-5 text-white/85" />
                   </div>
-                  <span className="text-white/90 text-base">{item.text}</span>
+                  <span className="text-white/85 text-[17px]">{item.text}</span>
                 </div>
               ))}
             </div>
@@ -170,7 +289,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
 
           {/* Copyright — pinned to bottom */}
           <p className="absolute bottom-6 left-24 text-white text-sm">
-            © 2026 Casemate. All rights reserved.
+            &copy; 2026 Casemate. All rights reserved.
           </p>
         </div>
 
@@ -179,34 +298,18 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
       {/* ═══ Right — Login / Signup Form ═══ */}
       <div className="w-full lg:w-[40%] flex items-center justify-center p-6 lg:p-12 bg-background relative overflow-hidden">
         <div className="relative z-[30] w-full max-w-[380px]">
-          {/* Logo */}
-          <div className="flex items-center gap-2.5 mb-10">
-            <div
-              className="p-2 rounded-xl"
-              style={{
-                background: "linear-gradient(135deg, #6D5EF5, #A78BFA)",
-              }}
+          {/* 회원가입 모드: 뒤로가기 */}
+          {mode === "signup" && (
+            <button
+              type="button"
+              onClick={() => { setMode("login"); setErrorMessage(""); setFieldErrors({}); }}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-16 disabled:opacity-50"
             >
-              <Scale className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight text-foreground">
-              Casemate
-            </span>
-          </div>
-
-          {/* Heading */}
-          <div className="mb-8">
-            <h1 className="text-[28px] font-semibold tracking-tight text-foreground">
-              {mode === "login"
-                ? "다시 오신 것을 환영합니다"
-                : "새 계정 만들기"}
-            </h1>
-            <p className="text-muted-foreground/70 mt-2.5 text-[15px]">
-              {mode === "login"
-                ? "계속하려면 로그인하세요"
-                : "Casemate와 함께 시작하세요"}
-            </p>
-          </div>
+              <ArrowLeft className="h-4 w-4" />
+              로그인으로 돌아가기
+            </button>
+          )}
 
           {/* Inline Error Banner */}
           {errorMessage && (
@@ -238,29 +341,52 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
                 이메일
               </Label>
               <Input
+                ref={emailRef}
                 id="email"
                 type="email"
                 placeholder="example@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={mode === "signup" ? () => validateField("email", email) : undefined}
                 disabled={isLoading}
-                className="h-11"
+                className={`h-11 ${fieldErrors.email ? "border-destructive" : ""}`}
               />
+              {fieldErrors.email && (
+                <p className="text-xs text-destructive mt-1">{fieldErrors.email}</p>
+              )}
             </div>
+
+            {/* 비밀번호 + Eye 토글 */}
             <div className="space-y-1.5">
               <Label htmlFor="password" className="text-sm font-medium">
                 비밀번호
               </Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                className="h-11"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={mode === "signup" ? () => validateField("password", password) : undefined}
+                  disabled={isLoading}
+                  className={`h-11 pr-10 ${fieldErrors.password ? "border-destructive" : ""}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  tabIndex={-1}
+                  aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {fieldErrors.password && (
+                <p className="text-xs text-destructive mt-1">{fieldErrors.password}</p>
+              )}
             </div>
+
             {mode === "signup" && (
               <>
                 <div className="space-y-1.5">
@@ -291,19 +417,23 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
                     placeholder="회사 코드를 입력하세요"
                     value={firmCode}
                     onChange={(e) => setFirmCode(e.target.value)}
+                    onBlur={() => validateField("firmCode", firmCode)}
                     disabled={isLoading}
-                    className="h-11"
+                    className={`h-11 ${fieldErrors.firmCode ? "border-destructive" : ""}`}
                     required
                   />
+                  {fieldErrors.firmCode && (
+                    <p className="text-xs text-destructive mt-1">{fieldErrors.firmCode}</p>
+                  )}
                 </div>
               </>
             )}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 mt-1 flex items-center justify-center font-semibold rounded-lg text-white text-sm transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-[#7C6EF6] hover:bg-[#6D5EF5]"
+              className="w-full h-11 mt-1 flex items-center justify-center font-semibold rounded-lg text-[15px] transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none text-[#6D5EF5] border-2 border-[#7C6EF6]/30 bg-white/50 backdrop-blur-sm shadow-sm hover:bg-[#7C6EF6] hover:text-white hover:border-[#7C6EF6]"
             >
-              {isLoading ? (
+              {loadingTarget === "login" || loadingTarget === "signup" ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {mode === "login" ? "로그인 중..." : "가입 중..."}
@@ -323,7 +453,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
                 계정이 없으신가요?{" "}
                 <button
                   type="button"
-                  onClick={() => { setMode("signup"); setErrorMessage(""); }}
+                  onClick={() => { setMode("signup"); setErrorMessage(""); setFieldErrors({}); }}
                   disabled={isLoading}
                   className="text-primary font-semibold hover:underline underline-offset-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -335,7 +465,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
                 이미 계정이 있으신가요?{" "}
                 <button
                   type="button"
-                  onClick={() => { setMode("login"); setErrorMessage(""); }}
+                  onClick={() => { setMode("login"); setErrorMessage(""); setFieldErrors({}); }}
                   disabled={isLoading}
                   className="text-primary font-semibold hover:underline underline-offset-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -344,8 +474,137 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
               </p>
             )}
           </div>
+
+          {/* 데모 버튼 (로그인 모드에서만) */}
+          {mode === "login" && (
+            <div className="mt-7">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground/60">또는</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
+              <div className="relative group">
+                <div className="absolute -inset-[2px] rounded-[10px] opacity-0 bg-gradient-to-r from-[#6D5EF5] via-[#A78BFA] to-[#E879F9]" style={{ animation: 'demo-glow 20s ease-in-out infinite' }} />
+                <button
+                  type="button"
+                  onClick={handleDemoLogin}
+                  disabled={isLoading}
+                  className="relative w-full h-11 flex items-center justify-center font-semibold rounded-lg text-[15px] transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none text-[#6D5EF5] border-2 border-[#7C6EF6]/30 bg-white/50 backdrop-blur-sm shadow-sm hover:bg-[#7C6EF6] hover:text-white hover:border-[#7C6EF6]"
+                >
+                  {loadingTarget === "demo" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {loadingTarget === "demo" ? "로그인 중..." : "게스트 로그인"}
+                </button>
+                {/* Tooltip — bottom */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2.5 w-fit p-4 rounded-xl bg-white border border-[#7C6EF6]/30 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
+                  <div className="absolute left-1/2 -translate-x-1/2 bottom-full w-0 h-0 border-x-[6px] border-x-transparent border-b-[6px] border-b-white" />
+                  <p className="text-[13px] text-muted-foreground leading-relaxed whitespace-nowrap mb-2.5">
+                    게스트 계정으로 체험할 수 있는 기능:
+                  </p>
+                  <ul className="text-[13px] text-muted-foreground/70 space-y-1 whitespace-nowrap">
+                    <li>· AI 홈 채팅 에이전트</li>
+                    <li>· 사건 분석 결과 조회</li>
+                    <li>· 판례 검색 · 유사 판례 비교</li>
+                    <li>· AI 법률 문서 초안 작성</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ═══ 관리자 코드 모달 ═══ */}
+      {showAdminModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-background rounded-2xl shadow-xl w-full max-w-[360px] mx-4 p-6 relative">
+            <button
+              type="button"
+              onClick={() => { setShowAdminModal(false); setAdminCodeError(""); }}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <h3 className="text-lg font-semibold text-foreground mb-1">관리자 인증</h3>
+            <p className="text-sm text-muted-foreground mb-5">
+              계정 생성에는 관리자 인증이 필요합니다
+            </p>
+
+            {adminCodeError && (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20 mb-4">
+                <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                <p className="text-sm text-destructive">{adminCodeError}</p>
+              </div>
+            )}
+
+            <div className="space-y-1.5 mb-5">
+              <Label htmlFor="admin-code" className="text-sm font-medium">
+                관리자 코드
+              </Label>
+              <Input
+                ref={adminCodeRef}
+                id="admin-code"
+                type="password"
+                placeholder="관리자 코드를 입력하세요"
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && adminCode.trim()) {
+                    submitSignup(adminCode.trim());
+                  }
+                }}
+                disabled={isLoading}
+                className="h-11"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowAdminModal(false); setAdminCodeError(""); }}
+                disabled={isLoading}
+                className="flex-1 h-10 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => submitSignup(adminCode.trim())}
+                disabled={isLoading || !adminCode.trim()}
+                className="flex-1 h-10 rounded-lg text-sm font-semibold text-white bg-[#7C6EF6] hover:bg-[#6D5EF5] transition-colors disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "가입 완료"
+                )}
+              </button>
+            </div>
+
+            {/* 모달 하단 데모 링크 */}
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdminModal(false);
+                  setAdminCodeError("");
+                  setMode("login");
+                  setErrorMessage("");
+                  setFieldErrors({});
+                  // 약간의 딜레이 후 데모 로그인 실행
+                  setTimeout(handleDemoLogin, 100);
+                }}
+                disabled={isLoading}
+                className="text-xs text-primary hover:underline underline-offset-4 transition-colors disabled:opacity-50"
+              >
+                또는 체험하기 &rarr;
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ Unified Waves — spans full width ═══ */}
       <div className="hidden lg:block absolute bottom-0 left-0 right-0 h-[320px] pointer-events-none" style={{ zIndex: 20 }}>
         {/* Left half — white filled waves (visible on purple bg) */}
