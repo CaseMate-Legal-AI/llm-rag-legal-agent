@@ -19,7 +19,7 @@ from sqlalchemy import or_
 from openai import OpenAI
 
 from tool.database import get_db
-from tool.security import get_current_user
+from tool.security import get_current_user, block_demo_user
 from app.models.evidence import Case, CaseAnalysis, Evidence, CaseEvidenceMapping
 from app.models.timeline import TimeLine
 from app.models.case_document import CaseDocument, CaseDocumentDraft
@@ -741,7 +741,7 @@ def _filter_visible_docs(docs, user: User):
 async def create_document(
     request: CreateDocumentRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(block_demo_user),
 ):
     """새 문서 저장"""
     access_level = request.access_level if request.access_level in VALID_ACCESS_LEVELS else "firm_readonly"
@@ -840,7 +840,7 @@ async def update_document(
     document_id: int,
     request: UpdateDocumentRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(block_demo_user),
 ):
     """문서 수정 - 편집 권한 검사 (access_level 변경은 작성자만)"""
     doc = db.query(CaseDocument).filter(CaseDocument.id == document_id).first()
@@ -868,7 +868,7 @@ async def update_document(
 async def delete_document(
     document_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(block_demo_user),
 ):
     """문서 삭제 - 작성자만 가능"""
     doc = db.query(CaseDocument).filter(CaseDocument.id == document_id).first()

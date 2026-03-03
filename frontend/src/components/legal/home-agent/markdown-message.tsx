@@ -98,16 +98,16 @@ export function MarkdownMessage({ content, onLegalRefClick }: MarkdownMessagePro
   }), [onLegalRefClick]);
 
   return (
-    <div className="text-sm prose prose-sm dark:prose-invert max-w-none
+    <div className="text-[16px] prose prose-base dark:prose-invert max-w-none
       prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:font-semibold prose-headings:text-foreground
-      prose-h2:text-[15px] prose-h3:text-sm
-      prose-p:my-1.5 prose-p:text-sm prose-p:leading-relaxed prose-p:text-card-foreground
-      prose-li:text-sm prose-li:leading-relaxed prose-li:text-card-foreground prose-li:my-0.5
+      prose-h2:text-[18px] prose-h3:text-[16px]
+      prose-p:my-1.5 prose-p:text-[16px] prose-p:leading-relaxed prose-p:text-card-foreground
+      prose-li:text-[16px] prose-li:leading-relaxed prose-li:text-card-foreground prose-li:my-0.5
       prose-strong:text-foreground
-      prose-table:text-xs
+      prose-table:text-[14px]
       prose-th:px-2 prose-th:py-1 prose-th:text-left
       prose-td:px-2 prose-td:py-1
-      prose-code:text-xs prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+      prose-code:text-[14px] prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded
     ">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {content}

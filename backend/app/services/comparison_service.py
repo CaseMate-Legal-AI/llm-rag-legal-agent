@@ -131,10 +131,10 @@ class ComparisonService:
             }
 
         except Exception as e:
-            logger.error(f"비교 분석 실패: {e}")
+            logger.error(f"비교 분석 실패: {e}", exc_info=True)
             return {
                 "success": False,
-                "error": f"비교 분석 중 오류 발생: {str(e)}",
+                "error": "비교 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
             }
 
     def _parse_analysis(self, analysis: str) -> Dict[str, str]:

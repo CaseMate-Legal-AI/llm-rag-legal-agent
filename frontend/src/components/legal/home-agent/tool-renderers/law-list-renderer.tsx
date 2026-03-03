@@ -26,7 +26,7 @@ function LawCard({ item }: { item: LawItem }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-teal-600 dark:text-teal-400">
+            <p className="text-[15px] font-semibold text-teal-600 dark:text-teal-400">
               {item.law_name}
             </p>
             {isLong && (
@@ -41,16 +41,16 @@ function LawCard({ item }: { item: LawItem }) {
               </button>
             )}
           </div>
-          <p className="text-sm font-medium text-foreground mt-0.5">
+          <p className="text-[15px] font-medium text-foreground mt-0.5">
             제{item.article_number}조 {item.article_title}
           </p>
           {item.content && (
             <div
-              className={`text-sm text-muted-foreground mt-1.5 leading-relaxed
+              className={`text-[15px] text-muted-foreground mt-1.5 leading-relaxed
                 prose prose-sm dark:prose-invert max-w-none
-                prose-p:my-1 prose-p:text-sm prose-p:text-muted-foreground
+                prose-p:my-1 prose-p:text-[15px] prose-p:text-muted-foreground
                 prose-strong:text-foreground prose-strong:font-semibold
-                prose-li:text-sm prose-li:my-0.5
+                prose-li:text-[15px] prose-li:my-0.5
                 prose-ul:my-1 prose-ol:my-1
                 ${!expanded && isLong ? "line-clamp-4" : ""}
               `}
@@ -68,7 +68,7 @@ export function LawListRenderer({ data }: Props) {
   const items = data as unknown as LawItem[];
 
   if (!items || items.length === 0) {
-    return <p className="text-sm text-muted-foreground">검색된 법령이 없습니다.</p>;
+    return <p className="text-[15px] text-muted-foreground">검색된 법령이 없습니다.</p>;
   }
 
   return (

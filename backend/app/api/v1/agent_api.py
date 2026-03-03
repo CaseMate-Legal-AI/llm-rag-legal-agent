@@ -295,7 +295,7 @@ async def _stream_graph_events(graph, input_data: dict, config: dict, collected:
                 yield _sse_event("tool_end", {
                     "id": run_id,
                     "tool": tool_name,
-                    "result": f"도구 결과 처리 중 오류: {e}",
+                    "result": "도구 실행 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
                     "structured": None,
                     "summary": f"{TOOL_MESSAGES.get(tool_name, tool_name)} 처리 실패",
                 })

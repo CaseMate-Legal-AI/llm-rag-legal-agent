@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Scale } from "lucide-react";
+import { User, LogOut, Scale, ChevronRight } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ProfileDialog } from "@/components/legal/profile-dialog";
@@ -67,18 +67,15 @@ export function MainLayout({ onLogout, userInfo }: MainLayoutProps) {
         >
           {/* Top Header */}
           <header className="h-[60px] glass-panel border-b border-border/30 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2 text-muted-foreground/70">
-                <Scale className="h-4 w-4" />
-                <span
-                  className="text-sm font-medium cursor-pointer hover:text-foreground transition-colors"
-                  onClick={() => navigate("/home")}
-                >
-                  Casemate
-                </span>
-                <span className="text-muted-foreground/50">/</span>
-              </div>
-              <h1 className="text-sm font-semibold truncate">{getPageTitle()}</h1>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="hidden sm:inline text-[14.5px] text-muted-foreground/50 cursor-pointer hover:text-muted-foreground transition-colors"
+                onClick={() => navigate("/home")}
+              >
+                CaseMate AI
+              </span>
+              <ChevronRight className="hidden sm:block h-3.5 w-3.5 text-muted-foreground/30" />
+              <h1 className="text-[15.5px] font-semibold truncate">{getPageTitle()}</h1>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -153,7 +150,7 @@ export function MainLayout({ onLogout, userInfo }: MainLayoutProps) {
           </main>
         </div>
 
-        {/* 홈 이외 페이지에서 채팅 버블 표시 */}
+        {/* 대화 시작 후 홈 이외 모든 페이지에서 채팅 버블 표시 */}
         {!isHomePage && <FloatingChatBubble />}
       </div>
     </TooltipProvider>

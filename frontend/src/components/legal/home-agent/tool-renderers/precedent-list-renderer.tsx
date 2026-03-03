@@ -28,7 +28,7 @@ export function PrecedentListRenderer({ data }: Props) {
   const items = data as unknown as PrecedentItem[];
 
   if (!items || items.length === 0) {
-    return <p className="text-sm text-muted-foreground">검색된 판례가 없습니다.</p>;
+    return <p className="text-[15px] text-muted-foreground">검색된 판례가 없습니다.</p>;
   }
 
   return (
@@ -45,11 +45,11 @@ export function PrecedentListRenderer({ data }: Props) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold text-primary">{item.case_number}</p>
+                <p className="text-[15px] font-semibold text-primary">{item.case_number}</p>
                 <ExternalLink className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-auto shrink-0" />
               </div>
-              <p className="text-sm font-medium text-foreground mt-0.5 line-clamp-2 group-hover:text-primary transition-colors">{item.case_name}</p>
-              <div className="flex items-center gap-3 mt-1.5 text-[13px] text-muted-foreground">
+              <p className="text-[15px] font-medium text-foreground mt-0.5 line-clamp-2 group-hover:text-primary transition-colors">{item.case_name}</p>
+              <div className="flex items-center gap-3 mt-1.5 text-[14px] text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Building2 className="h-3 w-3" />
                   {item.court}
@@ -60,7 +60,7 @@ export function PrecedentListRenderer({ data }: Props) {
                 </span>
               </div>
               {item.content_snippet && (
-                <p className="text-sm text-muted-foreground mt-2 line-clamp-3 leading-relaxed">
+                <p className="text-[15px] text-muted-foreground mt-2 line-clamp-3 leading-relaxed">
                   {cleanSnippet(item.content_snippet)}
                 </p>
               )}

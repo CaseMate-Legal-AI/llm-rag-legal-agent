@@ -53,7 +53,7 @@ export function useEvidenceCrud({
           setUploadProgress({ current: i + 1, total: fileList.length });
         } catch (error) {
           console.error(`파일 업로드 실패 (${file.name}):`, error);
-          alert(`파일 업로드 실패: ${file.name}`);
+          alert(`파일 업로드에 실패했습니다. 잠시 후 다시 시도해주세요.`);
         }
       }
 
@@ -81,7 +81,7 @@ export function useEvidenceCrud({
         return true;
       } catch (error) {
         console.error("증거 삭제 실패:", error);
-        alert(`증거 삭제 실패: ${error}`);
+        alert("파일 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
         return false;
       } finally {
         setIsDeleting(false);
@@ -138,7 +138,7 @@ export function useEvidenceCrud({
         );
       } catch (error) {
         console.error("즐겨찾기 토글 실패:", error);
-        alert(`즐겨찾기 토글 실패: ${error}`);
+        alert("즐겨찾기 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
       }
     },
     [setFiles]
@@ -159,7 +159,7 @@ export function useEvidenceCrud({
         return true;
       } catch (error) {
         console.error("사건 연결 실패:", error);
-        alert(`사건 연결 실패: ${error}`);
+        alert("사건 연결에 실패했습니다. 잠시 후 다시 시도해주세요.");
         return false;
       }
     },
@@ -184,13 +184,13 @@ export function useEvidenceCrud({
           }
         }
         if (failCount > 0) {
-          alert(`${failCount}개 파일 이동 실패. 백엔드 서버를 재시작해 주세요.`);
+          alert(`${failCount}개 파일 이동에 실패했습니다. 잠시 후 다시 시도해주세요.`);
         }
         await fetchEvidences();
         return failCount === 0;
       } catch (error) {
         console.error("파일 이동 실패:", error);
-        alert(`파일 이동 실패: ${error}`);
+        alert("파일 이동에 실패했습니다. 잠시 후 다시 시도해주세요.");
         return false;
       }
     },
@@ -219,7 +219,7 @@ export function useEvidenceCrud({
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
       console.error("파일 다운로드 실패:", error);
-      alert(`파일 다운로드 실패: ${error}`);
+      alert("파일 다운로드에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   }, []);
 

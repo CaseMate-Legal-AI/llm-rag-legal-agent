@@ -807,6 +807,52 @@ def create_tools(user_id: int, law_firm_id: int):
             logger.error(f"RAG 검색 실패: {e}", exc_info=True)
             return _structured_return(f"RAG 검색 실패: {e}", None)
 
+    @tool
+    def navigate_to_document_editor(case_id: int, document_type: str) -> str:
+        """사건의 문서 작성 페이지로 이동합니다.
+
+        고소장, 소장, 내용증명, 준비서면, 법률 의견서, 합의서 작성 요청 시 사용합니다.
+
+        Args:
+            case_id: 문서를 작성할 사건 ID (list_cases로 확인 가능)
+            document_type: 문서 유형 ("고소장", "소장", "내용증명", "준비서면", "법률 의견서", "합의서" 중 하나)
+
+        Returns:
+            네비게이션 정보 (프론트엔드에서 페이지 이동 처리)
+        """
+        logger.info(f"[navigate_to_document_editor] case_id={case_id}, document_type={document_type}")
+        try:
+            with SessionLocal() as db:
+                case = db.query(Case).filter(Case.id == case_id, Case.law_firm_id == law_firm_id).first()
+                if not case:
+                    return _structured_return(f"사건 #{case_id}을 찾을 수 없습니다.", None)
+
+                # 문서 유형 정규화 (프론트엔드 템플릿 ID와 일치)
+                doc_type_map = {
+                    "고소장": "criminal_complaint",
+                    "소장": "civil_complaint",
+                    "내용증명": "demand_letter",
+                    "준비서면": "brief",
+                    "법률 의견서": "legal_opinion",
+                    "합의서": "settlement_agreement",
+                }
+                normalized_type = doc_type_map.get(document_type, "civil_complaint")
+
+                text = f"'{case.title}' 사건의 {document_type} 작성 페이지로 이동합니다."
+                data = {
+                    "action": "navigate",
+                    "target": "document_editor",
+                    "case_id": case_id,
+                    "case_title": case.title,
+                    "document_type": document_type,
+                    "document_type_code": normalized_type,
+                    "url": f"/cases/{case_id}?tab=documents&type={normalized_type}",
+                }
+                return _structured_return(text, data)
+        except Exception as e:
+            logger.error(f"문서 작성 페이지 이동 실패: {e}", exc_info=True)
+            return _structured_return(f"문서 작성 페이지 이동 실패: {e}", None)
+
     return [
         list_cases,
         analyze_case,
@@ -819,4 +865,5 @@ def create_tools(user_id: int, law_firm_id: int):
         get_case_evidence,
         get_case_similar_precedents,
         rag_search,
+        navigate_to_document_editor,
     ]

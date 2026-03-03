@@ -5,6 +5,7 @@ import { TutorialOverlay, type TutorialStep } from "@/components/legal/tutorial-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useChat } from "@/contexts/chat-context";
+import type { ToolResult } from "@/hooks/useAgentSSE";
 import { AgentResultsPanel } from "@/components/legal/home-agent/agent-results-panel";
 import { AgentStepsList } from "@/components/legal/home-agent/agent-steps-list";
 import { MarkdownMessage } from "@/components/legal/home-agent/markdown-message";
@@ -130,6 +131,7 @@ export function HomePage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [greeting] = useState(() => getRandomGreeting(userInfo?.name, userInfo?.role));
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // 결과 패널 상태
   const [panelOpen, setPanelOpen] = useState(false);
@@ -138,6 +140,8 @@ export function HomePage() {
   const panelAutoOpenedRef = useRef(false);
   // 선택된 메시지 ID (이전 대화의 도구 결과 보기용)
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
+  // 법률 인용 클릭 시 포커스할 탭 인덱스
+  const [focusTabIndex, setFocusTabIndex] = useState<number | null>(null);
 
   const userStartedTyping = input.length > 0 || hasMessages;
   const { hintText } = useTypingHint(!hasMessages, userStartedTyping);
@@ -235,15 +239,51 @@ export function HomePage() {
     [agent, addUserMessage]
   );
 
-  // 판례번호/법조문 클릭 → 우측 패널 열기
-  const handleLegalRefClick = useCallback(() => {
-    if (agent.toolResults.length > 0 && !panelOpen) {
+  // 판례번호/법조문 클릭 → 매칭 탭 찾기 → 패널 열기
+  const findMatchingTab = useCallback((ref: string, results: ToolResult[]): number => {
+    return results.findIndex((tr) => {
+      if (tr.status !== "done" || !tr.structured) return false;
+      const data = (tr.structured as { data?: unknown }).data;
+      if (!data) return false;
+
+      switch (tr.tool) {
+        case "rag_search": {
+          const rag = data as { precedents?: { case_number?: string }[]; laws?: { law_name?: string; article_number?: string | number }[] };
+          if (rag.precedents?.some((p) => p.case_number && ref.includes(p.case_number))) return true;
+          if (rag.laws?.some((l) => l.law_name && l.article_number && ref.includes(l.law_name) && ref.includes(`제${l.article_number}조`))) return true;
+          return false;
+        }
+        case "search_precedents":
+        case "get_case_similar_precedents": {
+          const arr = data as { case_number?: string }[];
+          return Array.isArray(arr) && arr.some((p) => p.case_number && ref.includes(p.case_number));
+        }
+        case "search_laws": {
+          const arr = data as { law_name?: string; article_number?: string | number }[];
+          return Array.isArray(arr) && arr.some((l) => l.law_name && l.article_number && ref.includes(l.law_name) && ref.includes(`제${l.article_number}조`));
+        }
+        default:
+          return false;
+      }
+    });
+  }, []);
+
+  const handleLegalRefClick = useCallback((ref: string, messageId?: string, msgToolResults?: ToolResult[]) => {
+    const results = msgToolResults && msgToolResults.length > 0 ? msgToolResults : agent.toolResults;
+    if (results.length === 0) return;
+
+    if (messageId) setSelectedMessageId(messageId);
+
+    const matchIdx = findMatchingTab(ref, results);
+    setFocusTabIndex(matchIdx >= 0 ? matchIdx : null);
+
+    if (!panelOpen) {
       if (containerRef.current) {
         setPanelWidth(containerRef.current.offsetWidth * DEFAULT_PANEL_RATIO);
       }
       setPanelOpen(true);
     }
-  }, [agent.toolResults.length, panelOpen]);
+  }, [agent.toolResults, panelOpen, findMatchingTab]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -275,8 +315,8 @@ export function HomePage() {
 
   // ── Input Bar (공유) ──
   const inputBar = (
-    <div className="flex items-center gap-2 bg-card border border-border/50 rounded-2xl px-4 py-2.5 shadow-sm focus-within:border-primary/40 focus-within:shadow-md transition-all">
-      <div className="flex-1 relative">
+    <div className="flex items-center gap-2.5 bg-card border border-border/50 rounded-2xl px-5 py-[10px] shadow-sm focus-within:border-primary/40 focus-within:shadow-md transition-all">
+      <div className="flex-1 relative flex items-center">
         <textarea
           ref={textareaRef}
           value={input}
@@ -285,11 +325,11 @@ export function HomePage() {
           onKeyDown={handleKeyDown}
           placeholder={hasMessages ? "메시지를 입력하세요..." : ""}
           rows={1}
-          className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none min-h-8 leading-8"
+          className="w-full resize-none bg-transparent text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none leading-normal py-1"
           style={{ maxHeight: 160 }}
         />
         {!hasMessages && !input && (
-          <div className="absolute inset-0 pointer-events-none text-sm leading-8" style={{ color: "#A0A7B5" }}>
+          <div className="absolute inset-0 pointer-events-none text-base leading-normal flex items-center" style={{ color: "#A0A7B5" }}>
             {hintText}
           </div>
         )}
@@ -298,25 +338,22 @@ export function HomePage() {
         type="button"
         onClick={() => sendMessage(input)}
         disabled={!input.trim() || agent.isStreaming}
-        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
         style={{
           background: input.trim() && !agent.isStreaming
             ? "linear-gradient(135deg, #6D5EF5, #A78BFA)"
             : "var(--muted)",
         }}
       >
-        <ArrowUp className="h-4 w-4 text-white" />
+        <ArrowUp className="h-[18px] w-[18px] text-white" />
       </button>
     </div>
   );
 
   // ── Assistant icon ──
   const assistantIcon = (
-    <div
-      className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center mt-0.5"
-      style={{ background: "linear-gradient(135deg, #6D5EF5, #A78BFA)" }}
-    >
-      <Scale className="h-4 w-4 text-white" />
+    <div className="shrink-0 mt-0.5 -translate-x-2">
+      <Scale className="h-6 w-6 text-primary" strokeWidth={1.5} />
     </div>
   );
 
@@ -325,10 +362,10 @@ export function HomePage() {
     return (
       <div className="relative flex flex-col items-center justify-center" style={{ height: "calc(100vh - 56px)" }}>
         {gradientBg}
-        <div className="relative z-10 flex flex-col items-center w-full max-w-2xl px-4">
+        <div className="relative z-10 flex flex-col items-center w-full px-4" style={{ maxWidth: 730 }}>
           <div className="mb-12 text-center">
-            <h1 className="text-[32px] font-semibold text-foreground tracking-tight">{greeting}</h1>
-            <p className="mt-2 text-muted-foreground" style={{ fontSize: "0.935rem" }}>
+            <h1 className="text-[36px] font-semibold text-foreground tracking-tight">{greeting}</h1>
+            <p className="mt-2.5 text-muted-foreground text-[18px]">
               업무와 관련된 질문을 입력해 주세요.
             </p>
           </div>
@@ -359,10 +396,10 @@ export function HomePage() {
                 <button
                   type="button"
                   onClick={() => navigate("/new-case")}
-                  className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-medium transition-opacity hover:opacity-85"
+                  className="flex items-center gap-2.5 px-5 py-3.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-85"
                   style={{ background: "linear-gradient(135deg, #6D5EF5, #8B7AF7)", color: "#fff" }}
                 >
-                  <Scale className="h-4 w-4" />
+                  <Scale className="h-[18px] w-[18px]" />
                   새 사건 등록
                 </button>
               </TooltipTrigger>
@@ -373,10 +410,10 @@ export function HomePage() {
                 <button
                   type="button"
                   onClick={() => navigate("/cases")}
-                  className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-xs font-medium transition-opacity hover:opacity-85"
+                  className="flex items-center gap-2.5 px-5 py-3.5 rounded-xl text-sm font-medium transition-opacity hover:opacity-85"
                   style={{ background: "linear-gradient(135deg, #6D5EF5, #8B7AF7)", color: "#fff" }}
                 >
-                  <FileText className="h-4 w-4" />
+                  <FileText className="h-[18px] w-[18px]" />
                   사건 목록
                 </button>
               </TooltipTrigger>
@@ -397,18 +434,13 @@ export function HomePage() {
       <div className="flex-1 flex flex-col relative z-10 min-w-0">
         {/* Chat header bar */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-border/20">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={() => resetChat()}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span>새 대화</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" sideOffset={4}>대화를 초기화하고 처음으로</TooltipContent>
-          </Tooltip>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-[14px] font-medium text-foreground/70 border border-border/50 hover:text-foreground hover:bg-muted/60 hover:border-border transition-colors"
+          >
+            <RotateCcw className="h-4 w-4" />
+            <span>새 대화 시작하기</span>
+          </button>
 
           {(agent.toolResults.length > 0 || messages.some(m => m.toolResults && m.toolResults.length > 0)) && (
             <button
@@ -433,7 +465,7 @@ export function HomePage() {
                 {msg.role === "user" ? (
                   <div className="flex justify-end">
                     <div
-                      className="max-w-[75%] px-4 py-3 rounded-2xl rounded-br-md text-sm text-primary-foreground whitespace-pre-wrap leading-relaxed"
+                      className="max-w-[75%] px-4 py-3 rounded-2xl rounded-br-md text-[16px] text-primary-foreground whitespace-pre-wrap leading-relaxed"
                       style={{ background: "linear-gradient(135deg, #6D5EF5, #8B7AF7)" }}
                     >
                       {msg.content}
@@ -465,10 +497,13 @@ export function HomePage() {
                               : "border-border/40 hover:border-border/60"
                             }`}
                         >
-                          <MarkdownMessage content={msg.content} onLegalRefClick={handleLegalRefClick} />
+                          <MarkdownMessage content={msg.content} onLegalRefClick={(ref) => handleLegalRefClick(ref, msg.id, msg.toolResults)} />
                           {msg.toolResults && msg.toolResults.length > 0 && (
-                            <div className="mt-2 pt-2 border-t border-border/30 text-sm text-muted-foreground">
-                              📊 도구 {msg.toolResults.length}개 실행됨 · 결과 패널 열기
+                            <div className="group/cta mt-10 pt-2.5 border-t border-border/30 flex items-center gap-1.5 text-[14px] cursor-pointer">
+                              <PanelRightOpen className="h-4 w-4 text-primary group-hover/cta:text-[#8B5CF6] transition-colors" />
+                              <span className="text-primary transition-all group-hover/cta:text-transparent group-hover/cta:bg-clip-text group-hover/cta:bg-gradient-to-r group-hover/cta:from-[#8B5CF6] group-hover/cta:to-[#EC4899]">
+                                도구 {msg.toolResults.length}개 실행됨 · 결과 보기
+                              </span>
                             </div>
                           )}
                         </div>
@@ -497,7 +532,7 @@ export function HomePage() {
 
                   {agent.streamingText ? (
                     <div className="px-4 py-3 rounded-2xl rounded-tl-md bg-card border border-border/40">
-                      <MarkdownMessage content={agent.streamingText} onLegalRefClick={handleLegalRefClick} />
+                      <MarkdownMessage content={agent.streamingText} onLegalRefClick={(ref) => handleLegalRefClick(ref)} />
                       <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 align-text-bottom" />
                     </div>
                   ) : agent.steps.length === 0 ? (
@@ -514,7 +549,7 @@ export function HomePage() {
             {/* Error */}
             {agent.error && (
               <div className="flex justify-start gap-3">
-                <div className="px-4 py-3 rounded-2xl bg-destructive/10 border border-destructive/30 text-sm text-destructive">
+                <div className="px-4 py-3 rounded-2xl bg-destructive/10 border border-destructive/30 text-[15px] text-destructive">
                   {agent.error}
                 </div>
               </div>
@@ -542,11 +577,38 @@ export function HomePage() {
           <AgentResultsPanel
             toolResults={panelToolResults}
             isStreaming={agent.isStreaming}
+            focusTabIndex={focusTabIndex}
             onClose={() => {
               setPanelOpen(false);
               setSelectedMessageId(null);
+              setFocusTabIndex(null);
             }}
           />
+        </div>
+      )}
+      {/* 새 대화 확인 다이얼로그 */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-background rounded-2xl shadow-xl w-full max-w-[340px] mx-4 p-6">
+            <h3 className="text-[16px] font-semibold text-foreground mb-2">새 대화를 시작할까요?</h3>
+            <p className="text-[14px] text-muted-foreground mb-6">
+              새 대화를 시작하면 기존 대화는 초기화됩니다.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 h-10 rounded-lg text-[14px] font-medium border border-border text-muted-foreground hover:bg-muted transition-colors"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => { resetChat(); setShowResetConfirm(false); }}
+                className="flex-1 h-10 rounded-lg text-[14px] font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
+              >
+                초기화
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

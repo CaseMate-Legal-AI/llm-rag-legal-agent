@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Search, FileText, Scale, ArrowLeftRight, Clock, Users, Loader2, Files } from "lucide-react";
+import { X, Search, FileText, Scale, ArrowLeftRight, Clock, Users, Loader2, Files, FileEdit } from "lucide-react";
 import type { ToolResult } from "@/hooks/useAgentSSE";
 import { CaseListRenderer } from "./tool-renderers/case-list-renderer";
 import { CaseAnalysisRenderer } from "./tool-renderers/case-analysis-renderer";
@@ -12,26 +12,29 @@ import { LawListRenderer } from "./tool-renderers/law-list-renderer";
 import { PrecedentSummaryRenderer } from "./tool-renderers/precedent-summary-renderer";
 import { RawTextRenderer } from "./tool-renderers/raw-text-renderer";
 import { EvidenceListRenderer } from "./tool-renderers/evidence-list-renderer";
+import { NavigationRenderer } from "./tool-renderers/navigation-renderer";
 import { ToolSkeleton } from "./tool-renderers/tool-skeleton";
 
 interface AgentResultsPanelProps {
   toolResults: ToolResult[];
   isStreaming?: boolean;
+  focusTabIndex?: number | null;
   onClose: () => void;
 }
 
 const TOOL_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  list_cases: { label: "사건 목록", icon: FileText, color: "#6D5EF5" },
+  list_cases: { label: "사건 목록", icon: FileText, color: "#64748B" },
   analyze_case: { label: "사건 분석", icon: Scale, color: "#8B5CF6" },
-  generate_timeline: { label: "타임라인", icon: Clock, color: "#F59E0B" },
-  generate_relationship: { label: "관계도", icon: Users, color: "#10B981" },
-  search_precedents: { label: "판례 검색", icon: Search, color: "#3B82F6" },
-  summarize_precedent: { label: "판례 요약", icon: FileText, color: "#6366F1" },
-  compare_precedent: { label: "판례 비교", icon: ArrowLeftRight, color: "#EC4899" },
-  search_laws: { label: "법령 검색", icon: Search, color: "#14B8A6" },
-  get_case_evidence: { label: "증거 현황", icon: Files, color: "#1E40AF" },
-  get_case_similar_precedents: { label: "유사 판례", icon: Scale, color: "#EC4899" },
-  rag_search: { label: "관련 자료", icon: Search, color: "#8B5CF6" },
+  generate_timeline: { label: "타임라인", icon: Clock, color: "#D97706" },
+  generate_relationship: { label: "관계도", icon: Users, color: "#059669" },
+  search_precedents: { label: "판례 검색", icon: Search, color: "#2563EB" },
+  summarize_precedent: { label: "판례 요약", icon: FileText, color: "#7C3AED" },
+  compare_precedent: { label: "판례 비교", icon: ArrowLeftRight, color: "#DB2777" },
+  search_laws: { label: "법령 검색", icon: Search, color: "#0D9488" },
+  get_case_evidence: { label: "증거 현황", icon: Files, color: "#6366F1" },
+  get_case_similar_precedents: { label: "유사 판례", icon: Scale, color: "#E11D48" },
+  rag_search: { label: "관련 자료", icon: Search, color: "#9333EA" },
+  navigate_to_document_editor: { label: "문서 작성", icon: FileEdit, color: "#F59E0B" },
 };
 
 function getToolRenderer(tr: ToolResult) {
@@ -42,8 +45,8 @@ function getToolRenderer(tr: ToolResult) {
   if (tr.status === "error") {
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-center">
-        <p className="text-sm text-destructive font-medium">{tr.summary || "도구 실행에 실패했습니다"}</p>
-        <p className="text-xs text-muted-foreground mt-1">다시 질문해 주세요</p>
+        <p className="text-[14px] text-destructive font-medium">{tr.summary || "도구 실행에 실패했습니다"}</p>
+        <p className="text-[13px] text-muted-foreground mt-1">다시 질문해 주세요</p>
       </div>
     );
   }
@@ -79,19 +82,21 @@ function getToolRenderer(tr: ToolResult) {
           <div className="space-y-4">
             {ragData.precedents && ragData.precedents.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-2">판례 ({ragData.precedents.length}건)</h4>
+                <h4 className="text-[13px] font-semibold text-muted-foreground mb-2">판례 ({ragData.precedents.length}건)</h4>
                 <PrecedentListRenderer data={ragData.precedents} />
               </div>
             )}
             {ragData.laws && ragData.laws.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-muted-foreground mb-2">법령 ({ragData.laws.length}건)</h4>
+                <h4 className="text-[13px] font-semibold text-muted-foreground mb-2">법령 ({ragData.laws.length}건)</h4>
                 <LawListRenderer data={ragData.laws} />
               </div>
             )}
           </div>
         );
       }
+      case "navigate_to_document_editor":
+        return <NavigationRenderer data={data as { action: string; target: string; case_id: number; case_title: string; document_type: string; document_type_code: string; url: string }} />;
     }
   }
 
@@ -99,7 +104,7 @@ function getToolRenderer(tr: ToolResult) {
   return <RawTextRenderer text={structured?.text || tr.result || "결과 없음"} />;
 }
 
-export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentResultsPanelProps) {
+export function AgentResultsPanel({ toolResults, isStreaming, focusTabIndex, onClose }: AgentResultsPanelProps) {
   const [activeTab, setActiveTab] = useState<number>(0);
   const prevFirstIdRef = useRef<string | null>(null);
 
@@ -111,6 +116,13 @@ export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentRe
       setActiveTab(0);
     }
   }, [firstResultId]);
+
+  // 외부에서 탭 전환 요청 (법률 인용 클릭)
+  useEffect(() => {
+    if (focusTabIndex != null && focusTabIndex >= 0 && focusTabIndex < toolResults.length) {
+      setActiveTab(focusTabIndex);
+    }
+  }, [focusTabIndex, toolResults.length]);
 
   // 스트리밍 중 새 결과가 추가되면 최신 탭으로 자동 전환
   useEffect(() => {
@@ -128,7 +140,7 @@ export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentRe
     <div className="h-full flex flex-col bg-background border-l border-border/50">
       {/* Panel Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/30">
-        <h3 className="text-sm font-semibold text-foreground">도구 실행 결과</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">도구 실행 결과</h3>
         <button
           onClick={onClose}
           className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-muted transition-colors"
@@ -159,7 +171,7 @@ export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentRe
             <button
               key={tr.id}
               onClick={() => setActiveTab(idx)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium whitespace-nowrap transition-all ${
                 isActive
                   ? "text-white shadow-sm"
                   : "text-muted-foreground hover:bg-muted/60"
@@ -167,9 +179,9 @@ export function AgentResultsPanel({ toolResults, isStreaming, onClose }: AgentRe
               style={isActive ? { backgroundColor: meta.color } : undefined}
             >
               {tr.status === "loading" ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Icon className="h-3 w-3" style={{ color: isActive ? "#fff" : meta.color }} />
+                <Icon className="h-3.5 w-3.5" style={{ color: isActive ? "#fff" : meta.color }} />
               )}
               {tabLabel}
             </button>

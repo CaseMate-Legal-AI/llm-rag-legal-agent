@@ -45,5 +45,7 @@ class STTService:
             return transcript.text
 
         except Exception as e:
-            print(f"❌ OpenAI Whisper API 호출 실패: {str(e)}")
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"OpenAI Whisper API 호출 실패: {e}", exc_info=True)
             raise e

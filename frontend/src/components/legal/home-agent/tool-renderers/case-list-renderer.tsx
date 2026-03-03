@@ -29,7 +29,7 @@ export function CaseListRenderer({ data }: Props) {
   const cases = data as unknown as CaseItem[];
 
   if (!cases || cases.length === 0) {
-    return <p className="text-sm text-muted-foreground">등록된 사건이 없습니다.</p>;
+    return <p className="text-[15px] text-muted-foreground">등록된 사건이 없습니다.</p>;
   }
 
   return (
@@ -46,32 +46,32 @@ export function CaseListRenderer({ data }: Props) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_COLORS[c.status] || "bg-muted text-muted-foreground"}`}>
+                <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_COLORS[c.status] || "bg-muted text-muted-foreground"}`}>
                   {c.status}
                 </span>
                 <ExternalLink className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-auto shrink-0" />
               </div>
-              <p className="text-sm font-medium text-foreground truncate mt-0.5 group-hover:text-primary transition-colors">{c.title}</p>
-              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+              <p className="text-[15px] font-medium text-foreground truncate mt-0.5 group-hover:text-primary transition-colors">{c.title}</p>
+              <div className="flex items-center gap-3 mt-1 text-[15px] text-muted-foreground">
                 <span>의뢰인: {c.client_name}</span>
                 <span>상대방: {c.opponent_name}</span>
               </div>
               <div className="flex items-center gap-3 mt-1">
-                <span className="text-[13px] text-muted-foreground/70">{c.case_type}</span>
+                <span className="text-[14px] text-muted-foreground/70">{c.case_type}</span>
                 {c.created_at && (
-                  <span className="flex items-center gap-0.5 text-[13px] text-muted-foreground/70">
+                  <span className="flex items-center gap-0.5 text-[14px] text-muted-foreground/70">
                     <Calendar className="h-3 w-3" />
                     {c.created_at}
                   </span>
                 )}
                 {c.evidence_count != null && (
-                  <span className="flex items-center gap-0.5 text-[13px] text-muted-foreground/70">
+                  <span className="flex items-center gap-0.5 text-[14px] text-muted-foreground/70">
                     <Paperclip className="h-3 w-3" />
                     증거 {c.evidence_count}건
                   </span>
                 )}
                 {c.has_analysis != null && (
-                  <span className={`flex items-center gap-0.5 text-[13px] ${c.has_analysis ? "text-green-600" : "text-muted-foreground/50"}`}>
+                  <span className={`flex items-center gap-0.5 text-[14px] ${c.has_analysis ? "text-green-600" : "text-muted-foreground/50"}`}>
                     <FlaskConical className="h-3 w-3" />
                     {c.has_analysis ? "분석완료" : "미분석"}
                   </span>

@@ -239,14 +239,7 @@ class RelationshipService:
             client_role=client_role or "원고"
         )
 
-        print(f"\n{'='*80}")
-        print(f"[LLM 프롬프트 - 관계도]")
-        print(f"{'='*80}")
-        print(f"프롬프트 길이: {len(prompt)} characters")
-        print(f"\n{prompt[:1000]}...")  # 처음 1000자만 출력
-        print(f"{'='*80}\n")
-
-        logger.info(f"[LLM] 프롬프트 생성 완료: {len(prompt)} characters")
+        logger.debug(f"[LLM] 프롬프트 생성 완료: {len(prompt)} characters")
 
         # OpenAI API 호출
         try:

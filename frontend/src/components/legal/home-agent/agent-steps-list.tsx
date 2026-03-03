@@ -36,13 +36,13 @@ export function AgentStepsList({ steps }: AgentStepsListProps) {
         {steps.map((step) => (
           <div
             key={step.id}
-            className="flex items-center gap-2 text-xs transition-opacity duration-300"
+            className="flex items-center gap-2 text-[13px] transition-opacity duration-300"
             style={{ opacity: step.status === "done" ? 0.45 : 1 }}
           >
             {step.status === "active" ? (
-              <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary shrink-0" />
             ) : (
-              <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
             )}
             <span className="text-muted-foreground truncate">
               {step.status === "done" && step.summary ? step.summary : step.message}

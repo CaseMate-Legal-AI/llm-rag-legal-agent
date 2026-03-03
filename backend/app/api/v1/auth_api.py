@@ -55,6 +55,7 @@ class SignupRequest(BaseModel):
     password: str
     role: str | None = None
     firm_code: int  # 회사 코드 (필수)
+    admin_code: str  # 관리자 인증 코드 (필수)
 
     @field_validator("email")
     @classmethod
@@ -115,9 +116,15 @@ class UserOut(BaseModel):
 def signup(request: SignupRequest, db: Session = Depends(get_db)):
     """
     회원가입 엔드포인트 - DB에 사용자 정보 저장
+    관리자 인증 코드가 일치해야 가입 가능
     """
 
     logger.info("회원가입 요청 수신")
+
+    # 관리자 인증 코드 검증
+    signup_secret = os.getenv("SIGNUP_SECRET_CODE", "")
+    if not signup_secret or request.admin_code != signup_secret:
+        raise HTTPException(status_code=403, detail="관리자 인증 코드가 올바르지 않습니다")
 
     try:
         # 회사 코드 필수 검증
@@ -204,6 +211,34 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
         logger.error(f"로그인 처리 중 오류: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="로그인 처리 중 오류가 발생했습니다")
 
+DEMO_FIRM_ID = int(os.getenv("DEMO_FIRM_ID", "0"))
+
+
+@router.post("/demo-login", response_model=LoginResponse)
+def demo_login(db: Session = Depends(get_db)):
+    """
+    데모 체험 로그인 - 비밀번호 없이 데모 계정으로 JWT 발급
+    DEMO_FIRM_ID 환경변수로 제어 (0이면 비활성)
+    """
+    if not DEMO_FIRM_ID:
+        raise HTTPException(status_code=503, detail="데모 모드가 비활성화되어 있습니다")
+
+    demo_user = db.query(User).filter(User.firm_id == DEMO_FIRM_ID).first()
+    if not demo_user:
+        raise HTTPException(status_code=503, detail="데모 계정이 설정되지 않았습니다")
+
+    access_token = create_access_token(data={"sub": demo_user.email, "user_id": demo_user.id})
+
+    logger.info(f"데모 로그인 성공: user_id={demo_user.id}")
+
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=demo_user.id,
+        email=demo_user.email,
+    )
+
+
 @router.get("/me", response_model=UserOut)
 def get_user_info(current_user: User = Depends(get_current_user)):
     """
@@ -224,7 +259,9 @@ def update_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """프로필 수정 (이름, 직업)"""
+    """프로필 수정 (이름, 직업) — 데모 계정은 수정 불가"""
+    if DEMO_FIRM_ID and current_user.firm_id == DEMO_FIRM_ID:
+        raise HTTPException(status_code=403, detail="데모 계정은 프로필을 수정할 수 없습니다.")
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
@@ -249,7 +286,9 @@ async def upload_avatar(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """프로필 사진 업로드"""
+    """프로필 사진 업로드 — 데모 계정은 수정 불가"""
+    if DEMO_FIRM_ID and current_user.firm_id == DEMO_FIRM_ID:
+        raise HTTPException(status_code=403, detail="데모 계정은 프로필을 수정할 수 없습니다.")
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(status_code=400, detail="지원하지 않는 이미지 형식입니다. (JPEG, PNG, WebP만 가능)")
 
