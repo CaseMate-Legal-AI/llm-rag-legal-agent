@@ -264,7 +264,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
         {/* Content */}
         <div className="relative z-[30] flex flex-col justify-center items-start h-full pl-24 pr-16 -mt-[46px]">
           {/* Tagline & Features */}
-          <div className="space-y-[72px]">
+          <div className="space-y-[72px] w-full">
             <div>
               <Scale className="h-11 w-11 text-white mb-[33px]" strokeWidth={1.8} />
               <h2 className="text-white text-[52px] font-bold tracking-normal leading-[1.1]">
@@ -275,15 +275,29 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
               </p>
             </div>
 
-            <div className="space-y-4">
-              {features.map((item) => (
-                <div key={item.text} className="flex items-center gap-3.5">
-                  <div className="p-2.5 rounded-lg bg-white/10">
-                    <item.icon className="h-5 w-5 text-white/85" />
+            <div className="w-full flex items-center justify-between">
+              <div className="space-y-4 shrink-0">
+                {features.map((item) => (
+                  <div key={item.text} className="flex items-center gap-3.5">
+                    <div className="p-2.5 rounded-lg bg-white/10">
+                      <item.icon className="h-5 w-5 text-white/85" />
+                    </div>
+                    <span className="text-white/85 text-[17px]">{item.text}</span>
                   </div>
-                  <span className="text-white/85 text-[17px]">{item.text}</span>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              {/* 프로젝트 소개 영상 */}
+              <div className="rounded-xl overflow-hidden shadow-lg border border-white/15 ml-auto mr-8" style={{ aspectRatio: "16/9", width: "clamp(200px, 40vw, 540px)" }}>
+                <iframe
+                  src="https://www.youtube.com/embed/159coWa2CKA?rel=0&loop=1&playlist=159coWa2CKA"
+                  title="CaseMate AI 소개"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                  style={{ transform: "scale(1.02)", transformOrigin: "center" }}
+                />
+              </div>
             </div>
           </div>
 
