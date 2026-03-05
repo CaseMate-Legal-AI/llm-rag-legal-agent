@@ -56,7 +56,8 @@ CHAIN_RULES = {
         "param_key": "case_id",
     },
     "get_case_evidence": {
-        "keywords": ["증거", "증거 파일", "증거 목록", "증거 현황", "증거자료"],
+        # "증거" 단독은 일반 법률 질문일 수 있으므로, "사건"과 함께 언급될 때만 매칭
+        "keywords": ["사건 증거", "사건의 증거", "등록된 증거", "증거 목록 보여", "증거 현황 보여", "증거자료 보여"],
         "chain": ["list_cases", "get_case_evidence"],  # analyze 불필요
         "param_key": "case_id",
     },
