@@ -13,8 +13,8 @@ httpx>=0.27.0
 # LLM 관련 라이브러리
 openai>=1.10.0
 
-# Cross-Encoder 리랭킹 (USE_RERANKING=true 시 필요)
-sentence-transformers>=2.2.0
+# Cross-Encoder 리랭킹 - HuggingFace API 사용으로 로컬 모델 불필요
+# sentence-transformers>=2.2.0
 
 # 문서 처리
 pymupdf>=1.24.14

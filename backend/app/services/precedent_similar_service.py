@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from qdrant_client.http import models
 from qdrant_client.models import Filter, FieldCondition, MatchAny
 
-from app.services.precedent_embedding_service import PrecedentEmbeddingService, get_openai_client
+from app.services.precedent_embedding_service import PrecedentEmbeddingService, get_openai_client, get_hf_client
 from app.services.precedent_repository import PrecedentRepository
 from app.config import CollectionConfig, QuantizationConfig
 from tool.qdrant_client import get_qdrant_client
@@ -33,21 +33,79 @@ def is_reranking_enabled() -> bool:
     return os.getenv("USE_RERANKING", "false").lower() in ("true", "1", "yes")
 
 
-# 리랭커 모델 (Lazy Loading)
-_reranker_model = None
+# HuggingFace Reranker 설정
+RERANKER_MODEL = "BAAI/bge-reranker-v2-m3"
+
+# 시작 시 로그 출력
+if is_reranking_enabled():
+    logger.info(f"리랭킹 모델: {RERANKER_MODEL} (HF API)")
 
 
-def get_reranker_model():
-    """리랭커 모델 싱글톤 로드. 리랭킹 비활성 시 None 반환."""
-    if not is_reranking_enabled():
-        return None
-    global _reranker_model
-    if _reranker_model is None:
-        from sentence_transformers import CrossEncoder
-        logger.info("리랭커 모델 로딩 중... (BAAI/bge-reranker-v2-m3)")
-        _reranker_model = CrossEncoder("BAAI/bge-reranker-v2-m3", max_length=4096)
-        logger.info("리랭커 모델 로드 완료")
-    return _reranker_model
+def warmup_reranker():
+    """HF Reranker API 워밍업 (슬립 방지)"""
+    try:
+        client = get_hf_client()
+        # Cross-Encoder: query [SEP] document 형식으로 합침
+        input_text = "ping [SEP] pong"
+        client.text_classification(input_text, model=RERANKER_MODEL)
+        logger.info("HF Reranker 워밍업 성공")
+        return True
+    except Exception as e:
+        logger.warning(f"HF Reranker 워밍업 실패: {e}")
+        return False
+
+
+def rerank_with_hf_api(pairs: list[tuple[str, str]], max_retries: int = 3) -> list[float]:
+    """
+    HuggingFace Inference API를 사용한 리랭킹 (Cross-Encoder 방식)
+
+    Args:
+        pairs: [(query, document), ...] 쌍 리스트
+        max_retries: 최대 재시도 횟수
+
+    Returns:
+        relevance scores 리스트
+    """
+    if not pairs:
+        return []
+
+    client = get_hf_client()
+    scores = []
+
+    for attempt in range(max_retries):
+        try:
+            for query, doc in pairs:
+                # Cross-Encoder: query [SEP] document 형식으로 합침
+                input_text = f"{query} [SEP] {doc}"
+                result = client.text_classification(input_text, model=RERANKER_MODEL)
+
+                # 결과에서 score 추출
+                if isinstance(result, list) and len(result) > 0:
+                    # 첫 번째 label의 score 사용
+                    score = result[0].score if hasattr(result[0], 'score') else 0
+                    scores.append(score)
+                else:
+                    scores.append(0)
+
+            logger.info(f"[HF Reranker] {len(pairs)}개 쌍 리랭킹 완료")
+            return scores
+
+        except Exception as e:
+            error_msg = str(e)
+            if "503" in error_msg or "loading" in error_msg.lower():
+                logger.warning(f"[HF Reranker] 모델 로딩 중... (시도 {attempt + 1}/{max_retries})")
+                time.sleep(2 * (attempt + 1))
+                scores = []
+                continue
+            elif attempt < max_retries - 1:
+                logger.warning(f"[HF Reranker] 에러 (시도 {attempt + 1}/{max_retries}): {e}")
+                time.sleep(2)
+                scores = []
+                continue
+            logger.error(f"[HF Reranker] 실패: {e}")
+            return []
+
+    return []
 
 
 @dataclass
@@ -395,14 +453,13 @@ class PrecedentSimilarService:
         top_k: int
     ) -> List[Dict[str, Any]]:
         """
-        Cross-encoder를 사용한 리랭킹
+        HuggingFace API를 사용한 리랭킹
         - best_chunk 1개를 온전히 사용 (문맥 유지)
         """
         if not candidates:
             return []
 
-        reranker = get_reranker_model()
-        if reranker is None:
+        if not is_reranking_enabled():
             return candidates[:top_k]
 
         # (쿼리, best_chunk) 쌍 생성
@@ -412,8 +469,13 @@ class PrecedentSimilarService:
             best_chunk = c.get("best_chunk", "")[:1500]
             pairs.append((query[:500], best_chunk))
 
-        # Cross-encoder로 점수 계산
-        scores = reranker.predict(pairs)
+        # HuggingFace API로 점수 계산
+        scores = rerank_with_hf_api(pairs)
+
+        # API 실패 시 원래 순서 유지
+        if not scores:
+            logger.warning("[리랭킹] HF API 실패, 원래 순서 유지")
+            return candidates[:top_k]
 
         # 점수 기준 정렬
         scored_candidates = [
