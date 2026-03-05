@@ -164,6 +164,9 @@ def generator_node(state: dict) -> dict:
     messages = _sanitize_messages(state["messages"])
     route = state.get("route", "general")
 
+    # DEBUG: route 확인
+    logger.info(f"[Generator] route={route}, messages 수: {len(messages)}")
+
     # 일반 대화는 간단한 프롬프트
     if route == "general":
         system = GENERAL_SYSTEM_PROMPT
@@ -179,8 +182,12 @@ def generator_node(state: dict) -> dict:
 
     # Self-RAG: 인용 검증 (도구 결과가 있을 때만)
     tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    logger.info(f"[Generator] Self-RAG 조건: tool_messages={len(tool_messages)}개, route={route}")
     if tool_messages and route != "general":
+        logger.info("[Generator] Self-RAG 검증 호출")
         response = _verify_citations(response, tool_messages)
+    else:
+        logger.info("[Generator] Self-RAG 검증 스킵")
 
     # Citation Filtering: 실제 인용된 출처만 추출
     cited_sources = []
@@ -456,6 +463,7 @@ def _has_case_tool_executed(messages: list) -> bool:
 def route_after_tools(state: dict) -> str:
     """Tools 실행 후 분기:
     - list_cases만 호출 → agent (사건 목록은 답변용 아님, 추가 도구 필요)
+    - rag_search 호출 → generator (Self-RAG 인용 검증 필요)
     - 단일 도구 + complex → generator (바로 답변, LLM 1회 절약)
     - 단, 준비 단계 도구는 후속 작업이 필요하므로 agent로 복귀
     - 그 외 → agent (멀티홉 지원)
@@ -476,6 +484,12 @@ def route_after_tools(state: dict) -> str:
     if tool_names == ["list_cases"]:
         logger.info("[Route] list_cases만 호출됨 → Agent로 돌아가서 추가 도구 호출")
         return "agent"
+
+    # rag_search 호출 → Generator 직행 (Self-RAG 인용 검증 필요)
+    # simple 라우트여도 rag_search는 출처 검증이 필요함
+    if "rag_search" in tool_names:
+        logger.info("[Route] rag_search 호출됨 → Generator 직행 (Self-RAG 검증)")
+        return "generator"
 
     # complex + 단일 도구 → 바로 generator (Agent 재호출 스킵)
     # 단, 준비 단계 도구는 항상 agent로 복귀 (멀티홉 체인 보장)
@@ -743,12 +757,18 @@ def _verify_citations(response: AIMessage, tool_messages: list[ToolMessage]) -> 
     # 도구 결과 텍스트 합치기
     tool_text = " ".join(m.content for m in tool_messages if m.content)
 
+    # DEBUG: 검증 시작 로그
+    logger.info(f"[Self-RAG] 검증 시작 - tool_text 길이: {len(tool_text)}, tool_messages 수: {len(tool_messages)}")
+
     removed_citations = []
 
     # 판례번호 검증 및 제거
     cited_cases = _CASE_NUMBER_RE.findall(content)
+    logger.info(f"[Self-RAG] 응답에서 발견된 판례번호: {cited_cases}")
     for case_num in cited_cases:
-        if case_num not in tool_text:
+        in_tool_text = case_num in tool_text
+        logger.info(f"[Self-RAG] '{case_num}' in tool_text: {in_tool_text}")
+        if not in_tool_text:
             # 판례번호가 포함된 문장/구절 제거 패턴들
             patterns = [
                 rf'[^.]*{re.escape(case_num)}[^.]*[., ]',  # 문장 단위

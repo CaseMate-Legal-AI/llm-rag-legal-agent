@@ -61,7 +61,8 @@ CHAIN_RULES = {
         "param_key": "case_id",
     },
     "get_case_similar_precedents": {
-        "keywords": ["유사 판례", "비슷한 판례", "유사한 판례", "관련 판례"],
+        # "유사 판례" 단독은 일반 검색일 수 있으므로, "사건"과 함께 언급될 때만 매칭
+        "keywords": ["사건 유사 판례", "사건의 유사 판례", "사건 관련 판례", "저장된 유사 판례", "저장한 판례"],
         "chain": ["list_cases", "get_case_similar_precedents"],  # analyze 불필요
         "param_key": "case_id",
     },
