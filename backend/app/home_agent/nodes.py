@@ -34,6 +34,7 @@ class RouteDecision(BaseModel):
     route: Literal["general", "simple", "complex", "document"] = Field(
         description="Query classification: general, simple, complex, or document"
     )
+    keyword: str = Field(default="", description="Search keywords (2-3 legal terms)")
 
 
 # ── LLM 인스턴스 ─────────────────────────────────────────────
@@ -93,8 +94,9 @@ def router_node(state: dict) -> dict:
     raw = result["raw"]
     log_llm_response(raw, model=AgentConfig.ROUTER_MODEL, purpose="router")
     route = parsed.route
-    logger.info(f"[Router] 분류 결과: {route}")
-    return {"route": route}
+    keyword = parsed.keyword
+    logger.info(f"[Router] 분류 결과: {route}, 키워드: {keyword}")
+    return {"route": route, "keyword": keyword}
 
 
 def general_node(state: dict) -> dict:
@@ -163,6 +165,54 @@ def generator_node(state: dict) -> dict:
     return {"messages": [response], "cited_sources": cited_sources}
 
 
+# ── Fallback RAG 노드 ──────────────────────────────────────────
+
+async def fallback_rag_node(state: dict, tools) -> dict:
+    """Complex인데 Agent가 도구 안 불렀을 때 자동으로 rag_search 실행
+    Router에서 이미 추출한 keyword를 사용 (추가 LLM 호출 없음)
+    """
+    import uuid
+
+    messages = state["messages"]
+    keyword = state.get("keyword", "")  # Router에서 추출한 키워드
+
+    # 마지막 사용자 질문 추출
+    last_human = next(
+        (m for m in reversed(messages) if isinstance(m, HumanMessage)), None
+    )
+    if not last_human:
+        return {"messages": [AIMessage(content="질문을 찾을 수 없습니다.")]}
+
+    user_query = last_human.content
+    logger.info(f"[Fallback RAG] 자동 검색: query='{user_query[:30]}...', keyword='{keyword}'")
+
+    # rag_search 도구 찾기
+    rag_tool = next((t for t in tools if t.name == "rag_search"), None)
+    if not rag_tool:
+        return {"messages": [AIMessage(content="RAG 검색 도구를 찾을 수 없습니다.")]}
+
+    # rag_search 실행 (Router에서 추출한 keyword 사용)
+    try:
+        result = await rag_tool.ainvoke({"query": user_query, "keyword": keyword})
+
+        # AIMessage with tool_calls + ToolMessage 형태로 반환
+        tool_call_id = f"fallback_{uuid.uuid4().hex[:8]}"
+        ai_msg = AIMessage(
+            content="",
+            tool_calls=[{
+                "id": tool_call_id,
+                "name": "rag_search",
+                "args": {"query": user_query, "keyword": keyword}
+            }]
+        )
+        tool_msg = ToolMessage(content=result, tool_call_id=tool_call_id, name="rag_search")
+
+        return {"messages": [ai_msg, tool_msg]}
+    except Exception as e:
+        logger.error(f"[Fallback RAG] 실패: {e}")
+        return {"messages": [AIMessage(content=f"검색 중 오류가 발생했습니다: {e}")]}
+
+
 # ── 조건부 엣지 함수 ──────────────────────────────────────────
 
 def route_after_router(state: dict) -> str:
@@ -177,7 +227,7 @@ def route_after_agent(state: dict) -> str:
     """Agent 출력 후 분기:
     - tool_calls 있으면 → tools
     - simple이고 tool_calls 없으면 → end (Agent가 직접 답변)
-    - complex이고 tool_calls 없으면 → 재시도 (1회) → generator
+    - complex이고 tool_calls 없으면 → fallback_rag (자동 RAG 검색)
     """
     messages = state["messages"]
     last = messages[-1]
@@ -190,24 +240,10 @@ def route_after_agent(state: dict) -> str:
     if route == "simple":
         return "end"  # Simple은 Agent 답변으로 종료
 
-    # Complex인데 도구 호출 없음 → 재시도 또는 generator
+    # Complex인데 도구 호출 없음 → 바로 fallback_rag
     if route == "complex":
-        # 현재 턴에서 도구 없이 응답한 AIMessage 횟수 체크 (무한 루프 방지)
-        no_tool_count = 0
-        for msg in reversed(messages):
-            if isinstance(msg, HumanMessage):
-                break
-            if isinstance(msg, AIMessage) and not (hasattr(msg, "tool_calls") and msg.tool_calls):
-                no_tool_count += 1
-
-        if no_tool_count >= 2:
-            # 이미 재시도함 → generator로
-            logger.warning("[Route] Complex 재시도 후에도 도구 호출 없음 → Generator")
-            return "generator"
-        else:
-            # 첫 번째 시도 → Agent 재시도
-            logger.warning("[Route] Complex 도구 호출 없음 → Agent 재시도")
-            return "agent"
+        logger.warning("[Route] Complex 도구 호출 없음 → Fallback RAG 자동 실행")
+        return "fallback_rag"
 
     return "generator"
 

@@ -38,7 +38,13 @@ Keywords: 고소장, 소장, 내용증명, 준비서면, 법률 의견서, 합�
 - Keywords: "내 사건", "사건 분석", "타임라인", "관계도", "판례 비교"
 - Examples: "내 사건 분석해줘", "타임라인 만들어줘"
 
-Respond with ONLY the route value. Do not explain."""
+## Output Format (JSON)
+{"route": "분류값", "keyword": "검색 키워드 2-3개 (법률 용어로 변환)"}
+
+Examples:
+- "안녕" → {"route": "general", "keyword": ""}
+- "명예훼손 요건 뭐야?" → {"route": "complex", "keyword": "명예훼손 성립요건"}
+- "커피 화상 고소 가능?" → {"route": "complex", "keyword": "화상 손해배상 제조물책임"}"""
 
 AGENT_SYSTEM_PROMPT = """\
 당신은 "AI 어쏘"입니다. 대한민국 법률 사건 관리 AI 어시스턴트.

@@ -23,6 +23,7 @@ from app.home_agent.nodes import (
     general_node,
     agent_node,
     generator_node,
+    fallback_rag_node,
     route_after_router,
     route_after_agent,
     route_after_tools,
@@ -34,6 +35,7 @@ logger = logging.getLogger(__name__)
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     route: str | None
+    keyword: str | None  # Router에서 추출한 검색 키워드
     cited_sources: list[dict]  # 실제 인용된 출처 목록
 
 
@@ -47,6 +49,7 @@ def build_graph(tools: list, checkpointer=None):
     graph.add_node("general", general_node)
     graph.add_node("agent", partial(agent_node, tools=tools))
     graph.add_node("tools", ToolNode(tools, handle_tool_errors=True))
+    graph.add_node("fallback_rag", partial(fallback_rag_node, tools=tools))
     graph.add_node("generator", generator_node)
 
     # 엣지: START → Router
@@ -61,13 +64,16 @@ def build_graph(tools: list, checkpointer=None):
     # 엣지: General → END (gpt-4o-mini 1회로 종료)
     graph.add_edge("general", END)
 
-    # 조건부 엣지: Agent → (tool_calls→tools, simple→END, complex재시도→agent, complex→generator)
+    # 조건부 엣지: Agent → (tool_calls→tools, simple→END, complex도구없음→fallback_rag)
     graph.add_conditional_edges("agent", route_after_agent, {
         "tools": "tools",
         "end": END,
-        "agent": "agent",  # Complex 도구 없음 → 재시도
+        "fallback_rag": "fallback_rag",  # Complex 도구 없음 → 자동 RAG 검색
         "generator": "generator",
     })
+
+    # 엣지: Fallback RAG → Generator
+    graph.add_edge("fallback_rag", "generator")
 
     # 조건부 엣지: Tools → (단일도구+complex→generator, 그 외→agent)
     graph.add_conditional_edges("tools", route_after_tools, {
