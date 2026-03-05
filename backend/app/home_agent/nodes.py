@@ -22,6 +22,7 @@ from app.home_agent.prompts import (
     GENERATOR_SYSTEM_PROMPT,
     GENERAL_SYSTEM_PROMPT,
 )
+from app.home_agent.tool_router import match_rule, RuleMatchResult
 from app.config import AgentConfig
 from app.middleware.llm_logger import log_llm_response
 
@@ -76,7 +77,7 @@ def _get_generator_llm():
 # ── 노드 함수 ────────────────────────────────────────────────
 
 def router_node(state: dict) -> dict:
-    """쿼리를 general/simple/complex로 분류"""
+    """쿼리를 general/simple/complex로 분류 + 규칙 기반 도구 매칭"""
     messages = state["messages"]
     last_human = next(
         (m for m in reversed(messages) if isinstance(m, HumanMessage)), None
@@ -84,6 +85,29 @@ def router_node(state: dict) -> dict:
     if not last_human:
         return {"route": "general"}
 
+    query = last_human.content
+
+    # ── 1. 규칙 기반 매칭 먼저 시도 ──
+    rule_result = match_rule(query, state)
+
+    if rule_result.matched:
+        # 규칙 매칭됨 → LLM 호출 스킵
+        if rule_result.ask_question:
+            # 사건 미특정 → 역질문 필요
+            logger.info(f"[Router] 규칙 매칭 (역질문): {rule_result.tool_name}")
+            return {
+                "route": "rule_ask",
+                "rule_match": rule_result._asdict(),
+            }
+        else:
+            # 규칙 실행 가능
+            logger.info(f"[Router] 규칙 매칭: {rule_result.tool_name}, type={rule_result.rule_type}")
+            return {
+                "route": "rule_matched",
+                "rule_match": rule_result._asdict(),
+            }
+
+    # ── 2. 규칙 매칭 안됨 → LLM Router ──
     llm = _get_router_llm()
     result = llm.invoke([
         SystemMessage(content=ROUTER_SYSTEM_PROMPT),
@@ -95,7 +119,7 @@ def router_node(state: dict) -> dict:
     log_llm_response(raw, model=AgentConfig.ROUTER_MODEL, purpose="router")
     route = parsed.route
     keyword = parsed.keyword
-    logger.info(f"[Router] 분류 결과: {route}, 키워드: {keyword}")
+    logger.info(f"[Router] LLM 분류 결과: {route}, 키워드: {keyword}")
     return {"route": route, "keyword": keyword}
 
 
@@ -165,6 +189,151 @@ def generator_node(state: dict) -> dict:
     return {"messages": [response], "cited_sources": cited_sources}
 
 
+# ── 규칙 기반 노드 ──────────────────────────────────────────────
+
+def rule_ask_node(state: dict) -> dict:
+    """규칙 매칭됐지만 사건 미특정 → 역질문"""
+    rule_match = state.get("rule_match", {})
+    question = rule_match.get("ask_question", "어떤 사건을 선택할까요?")
+
+    logger.info(f"[RuleAsk] 역질문: {question}")
+    return {"messages": [AIMessage(content=question)]}
+
+
+async def rule_executor_node(state: dict, tools) -> dict:
+    """규칙 매칭된 도구 실행 (체인 포함)
+
+    단순 규칙: 바로 도구 호출
+    체인 규칙: list_cases → (analyze_case) → target_tool 순차 실행
+    """
+    import uuid
+
+    rule_match = state.get("rule_match", {})
+    rule_type = rule_match.get("rule_type")
+    tool_name = rule_match.get("tool_name")
+    params = rule_match.get("params", {})
+    chain = rule_match.get("chain", [])
+    auto_select_first = rule_match.get("auto_select_first", False)
+
+    messages = []
+
+    # ── 단순 규칙: 바로 도구 호출 ──
+    if rule_type == "simple":
+        tool = next((t for t in tools if t.name == tool_name), None)
+        if not tool:
+            return {"messages": [AIMessage(content=f"도구 '{tool_name}'을 찾을 수 없습니다.")]}
+
+        tool_call_id = f"rule_{uuid.uuid4().hex[:8]}"
+        try:
+            # 동기/비동기 도구 모두 지원
+            if hasattr(tool, "ainvoke"):
+                result = await tool.ainvoke(params)
+            else:
+                result = tool.invoke(params)
+
+            ai_msg = AIMessage(content="", tool_calls=[{
+                "id": tool_call_id,
+                "name": tool_name,
+                "args": params,
+            }])
+            tool_msg = ToolMessage(content=result, tool_call_id=tool_call_id, name=tool_name)
+            messages = [ai_msg, tool_msg]
+
+            logger.info(f"[RuleExecutor] 단순 규칙 실행 완료: {tool_name}")
+
+        except Exception as e:
+            logger.error(f"[RuleExecutor] 도구 실행 실패: {e}")
+            return {"messages": [AIMessage(content=f"도구 실행 중 오류가 발생했습니다: {e}")]}
+
+        return {"messages": messages, "route": "simple"}
+
+    # ── 체인 규칙: 순차 실행 ──
+    if rule_type == "chain" and chain:
+        case_id = params.get("case_id")
+        search_query = params.get("search_query")
+
+        for i, step_tool_name in enumerate(chain):
+            tool = next((t for t in tools if t.name == step_tool_name), None)
+            if not tool:
+                logger.warning(f"[RuleExecutor] 체인 도구 없음: {step_tool_name}")
+                continue
+
+            tool_call_id = f"rule_{uuid.uuid4().hex[:8]}"
+            step_params = {}
+
+            # list_cases: 사건 목록 조회
+            if step_tool_name == "list_cases":
+                if search_query:
+                    step_params = {"search_query": search_query}
+                # else: 전체 목록 (자동 선택 시)
+
+            # analyze_case, generate_timeline 등: case_id 필요
+            elif step_tool_name in ("analyze_case", "generate_timeline", "generate_relationship", "get_case_evidence", "get_case_similar_precedents"):
+                if not case_id:
+                    return {"messages": messages + [AIMessage(content="사건을 선택해주세요.")]}
+                step_params = {"case_id": case_id}
+
+            # navigate_to_document_editor: case_id + document_type
+            elif step_tool_name == "navigate_to_document_editor":
+                if not case_id:
+                    return {"messages": messages + [AIMessage(content="사건을 선택해주세요.")]}
+                step_params = {"case_id": case_id}
+                if params.get("document_type"):
+                    step_params["document_type"] = params["document_type"]
+
+            try:
+                if hasattr(tool, "ainvoke"):
+                    result = await tool.ainvoke(step_params)
+                else:
+                    result = tool.invoke(step_params)
+
+                ai_msg = AIMessage(content="", tool_calls=[{
+                    "id": tool_call_id,
+                    "name": step_tool_name,
+                    "args": step_params,
+                }])
+                tool_msg = ToolMessage(content=result, tool_call_id=tool_call_id, name=step_tool_name)
+                messages.extend([ai_msg, tool_msg])
+
+                logger.info(f"[RuleExecutor] 체인 {i+1}/{len(chain)} 실행: {step_tool_name}")
+
+                # list_cases 실행 후 case_id 추출
+                if step_tool_name == "list_cases" and not case_id:
+                    case_id = _extract_case_id_from_result(result, auto_select_first)
+                    if not case_id:
+                        # 사건 찾기 실패
+                        return {
+                            "messages": messages + [AIMessage(content="사건을 찾을 수 없습니다. 사건명을 다시 확인해주세요.")],
+                            "route": "simple",
+                        }
+
+            except Exception as e:
+                logger.error(f"[RuleExecutor] 체인 도구 실행 실패: {step_tool_name}, {e}")
+                return {"messages": messages + [AIMessage(content=f"'{step_tool_name}' 실행 중 오류: {e}")]}
+
+        return {"messages": messages, "route": "complex"}
+
+    return {"messages": [AIMessage(content="규칙 실행 오류")]}
+
+
+def _extract_case_id_from_result(result: str, auto_select_first: bool) -> int | None:
+    """list_cases 결과에서 case_id 추출"""
+    import json
+
+    try:
+        parsed = json.loads(result)
+        data = parsed.get("data", [])
+        if isinstance(data, list) and len(data) > 0:
+            if auto_select_first or len(data) == 1:
+                # 자동 선택 또는 1건만 있으면 첫 번째 선택
+                return data[0].get("id")
+            # 여러 건이면 None 반환 (선택 필요)
+            return None
+    except (json.JSONDecodeError, TypeError):
+        pass
+    return None
+
+
 # ── Fallback RAG 노드 ──────────────────────────────────────────
 
 async def fallback_rag_node(state: dict, tools) -> dict:
@@ -218,6 +387,14 @@ async def fallback_rag_node(state: dict, tools) -> dict:
 def route_after_router(state: dict) -> str:
     """Router 판정 후 분기"""
     route = state.get("route", "general")
+
+    # 규칙 매칭된 경우
+    if route == "rule_matched":
+        return "rule_executor"
+    if route == "rule_ask":
+        return "rule_ask"
+
+    # LLM 분류 결과
     if route == "general":
         return "general"
     return "agent"
@@ -228,6 +405,7 @@ def route_after_agent(state: dict) -> str:
     - tool_calls 있으면 → tools
     - simple이고 tool_calls 없으면 → end (Agent가 직접 답변)
     - complex이고 tool_calls 없으면 → fallback_rag (자동 RAG 검색)
+    - 단, 이미 사건 관련 도구 실행됐으면 → generator (RAG 불필요)
     """
     messages = state["messages"]
     last = messages[-1]
@@ -240,12 +418,43 @@ def route_after_agent(state: dict) -> str:
     if route == "simple":
         return "end"  # Simple은 Agent 답변으로 종료
 
-    # Complex인데 도구 호출 없음 → 바로 fallback_rag
+    # Complex인데 도구 호출 없음
     if route == "complex":
+        # 이미 사건 관련 도구가 실행됐는지 확인
+        case_tools_executed = _has_case_tool_executed(messages)
+        if case_tools_executed:
+            logger.info("[Route] Complex 도구 호출 없음, 사건 도구 이미 실행됨 → Generator 직행")
+            return "generator"
+
+        # 사건 도구 없음 → Fallback RAG
         logger.warning("[Route] Complex 도구 호출 없음 → Fallback RAG 자동 실행")
         return "fallback_rag"
 
     return "generator"
+
+
+def _has_case_tool_executed(messages: list) -> bool:
+    """현재 턴에서 사건 관련 도구가 실행됐는지 확인
+
+    주의: 전체 대화가 아닌 현재 턴(마지막 HumanMessage 이후)만 체크.
+    이전 턴에서 analyze_case가 실행됐어도 새 질문에는 RAG 검색 필요.
+    """
+    case_tools = {
+        "analyze_case", "generate_timeline", "generate_relationship",
+        "get_case_evidence", "get_case_similar_precedents", "compare_precedent"
+    }
+
+    # 마지막 HumanMessage 이후의 메시지만 확인 (현재 턴)
+    current_turn_messages = []
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            break
+        current_turn_messages.append(msg)
+
+    for msg in current_turn_messages:
+        if isinstance(msg, ToolMessage) and msg.name in case_tools:
+            return True
+    return False
 
 
 def route_after_tools(state: dict) -> str:
@@ -395,12 +604,8 @@ def _strip_tool_data_for_agent(messages: list) -> list:
                 if isinstance(parsed, dict) and "data" in parsed:
                     data = parsed["data"]
                     if isinstance(data, list) and len(data) > 0:
-                        # 판례 검색: 판례번호 전체 목록
-                        if msg.name == "search_precedents":
-                            case_numbers = [p.get("case_number", "?") for p in data]
-                            summary = f"[{len(data)}건 검색됨] 판례번호: {', '.join(case_numbers)}"
                         # 저장된 유사 판례: 판례번호 전체 목록
-                        elif msg.name == "get_case_similar_precedents":
+                        if msg.name == "get_case_similar_precedents":
                             case_numbers = [p.get("case_number", "?") for p in data]
                             summary = f"[저장된 유사 판례 {len(data)}건] 판례번호: {', '.join(case_numbers)}"
                         # 사건 목록: case_id와 사건명 포함 (Agent가 case_id 알아야 함)
@@ -512,14 +717,6 @@ def _extract_cited_sources(answer: str, tool_messages: list[ToolMessage]) -> lis
                 if any(p in answer for p in patterns) and law_id not in seen:
                     cited.append({"type": "law", "id": law_id})
                     seen.add(law_id)
-
-        # search_precedents 결과 처리
-        elif msg.name == "search_precedents" and data and isinstance(data, list):
-            for p in data:
-                case_num = p.get("case_number", "")
-                if case_num and case_num in answer and case_num not in seen:
-                    cited.append({"type": "precedent", "id": case_num})
-                    seen.add(case_num)
 
         # search_laws 결과 처리
         elif msg.name == "search_laws" and data and isinstance(data, list):
