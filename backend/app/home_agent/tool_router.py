@@ -229,18 +229,20 @@ def _extract_case_context(query: str, state: dict = None) -> dict:
         "already_analyzed": False,
     }
 
-    # 1. 자동 선택 키워드 체크
-    if any(kw in query for kw in AUTO_SELECT_KEYWORDS):
-        result["auto_select_first"] = True
-        return result
-
-    # 2. 이전 대화에서 case_id 추출
+    # 1. 이전 대화에서 case_id 추출 (우선)
+    # "아까 그 사건" 등은 이전 대화의 사건을 의미하므로 먼저 체크
     if state and "messages" in state:
         recent_case_id = _get_recent_case_id(state["messages"])
         if recent_case_id:
             result["case_id"] = recent_case_id
             result["already_analyzed"] = _check_already_analyzed(state["messages"], recent_case_id)
+            logger.info(f"[ToolRouter] 이전 대화에서 case_id 추출: {recent_case_id}")
             return result
+
+    # 2. 자동 선택 키워드 체크 (이전 대화에 case_id 없을 때만)
+    if any(kw in query for kw in AUTO_SELECT_KEYWORDS):
+        result["auto_select_first"] = True
+        return result
 
     # 3. 쿼리에서 사건명/의뢰인명 추출
     # "김철수 사건", "홍길동 건", "ABC 사건" 등
@@ -271,15 +273,20 @@ def _get_recent_case_id(messages: list) -> int | None:
 
 
 def _check_already_analyzed(messages: list, case_id: int) -> bool:
-    """해당 case_id가 이미 분석됐는지 확인"""
-    from langchain_core.messages import ToolMessage
+    """해당 case_id가 이미 분석됐는지 확인
+
+    AIMessage의 tool_calls에서 analyze_case(case_id=X) 호출 여부 확인
+    """
+    from langchain_core.messages import AIMessage
 
     for msg in messages:
-        if isinstance(msg, ToolMessage) and msg.name == "analyze_case":
-            # ToolMessage의 내용에서 case_id 확인하기 어려우므로
-            # analyze_case가 호출된 적 있으면 분석됐다고 간주
-            # (더 정확하게 하려면 tool_call_id로 매칭해야 함)
-            return True
+        if isinstance(msg, AIMessage) and hasattr(msg, "tool_calls") and msg.tool_calls:
+            for tc in msg.tool_calls:
+                if tc.get("name") == "analyze_case":
+                    called_case_id = tc.get("args", {}).get("case_id")
+                    if called_case_id == case_id:
+                        logger.info(f"[ToolRouter] case_id={case_id} 이미 분석됨")
+                        return True
     return False
 
 

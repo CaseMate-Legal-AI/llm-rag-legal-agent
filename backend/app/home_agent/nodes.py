@@ -10,6 +10,7 @@ Generator → 최종 답변 생성 (Self-RAG + IRAC) - complex만
 import json
 import re
 import logging
+import uuid
 from typing import Literal
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
@@ -22,7 +23,7 @@ from app.home_agent.prompts import (
     GENERATOR_SYSTEM_PROMPT,
     GENERAL_SYSTEM_PROMPT,
 )
-from app.home_agent.tool_router import match_rule, RuleMatchResult
+from app.home_agent.tool_router import match_rule
 from app.config import AgentConfig
 from app.middleware.llm_logger import log_llm_response
 
@@ -32,8 +33,8 @@ logger = logging.getLogger(__name__)
 # ── Structured Output 스키마 ──────────────────────────────────
 
 class RouteDecision(BaseModel):
-    route: Literal["general", "simple", "complex", "document"] = Field(
-        description="Query classification: general, simple, complex, or document"
+    route: Literal["general", "simple", "complex"] = Field(
+        description="Query classification: general, simple, or complex"
     )
     keyword: str = Field(default="", description="Search keywords (2-3 legal terms)")
 
@@ -206,7 +207,6 @@ async def rule_executor_node(state: dict, tools) -> dict:
     단순 규칙: 바로 도구 호출
     체인 규칙: list_cases → (analyze_case) → target_tool 순차 실행
     """
-    import uuid
 
     rule_match = state.get("rule_match", {})
     rule_type = rule_match.get("rule_type")
@@ -318,8 +318,6 @@ async def rule_executor_node(state: dict, tools) -> dict:
 
 def _extract_case_id_from_result(result: str, auto_select_first: bool) -> int | None:
     """list_cases 결과에서 case_id 추출"""
-    import json
-
     try:
         parsed = json.loads(result)
         data = parsed.get("data", [])
@@ -340,8 +338,6 @@ async def fallback_rag_node(state: dict, tools) -> dict:
     """Complex인데 Agent가 도구 안 불렀을 때 자동으로 rag_search 실행
     Router에서 이미 추출한 keyword를 사용 (추가 LLM 호출 없음)
     """
-    import uuid
-
     messages = state["messages"]
     keyword = state.get("keyword", "")  # Router에서 추출한 키워드
 
