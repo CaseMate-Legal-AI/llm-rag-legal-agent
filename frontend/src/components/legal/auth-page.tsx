@@ -255,7 +255,7 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
     >
       {/* ═══ Left — Brand Visual ═══ */}
       <div
-        className="hidden lg:flex relative overflow-hidden flex-col lg:w-[60%]"
+        className="hidden lg:flex relative overflow-visible flex-col lg:w-[60%]"
         style={{
           background:
             "linear-gradient(160deg, #6D5EF5 0%, #8B7AF7 40%, #A78BFA 75%, #C4B5FD 100%)",
@@ -288,16 +288,22 @@ export function AuthPage({ onLogin, exiting = false }: AuthPageProps) {
               </div>
 
               {/* 프로젝트 소개 영상 */}
-              <div className="rounded-xl overflow-hidden shadow-lg border border-white/15 ml-auto mr-8" style={{ aspectRatio: "16/9", width: "clamp(200px, 40vw, 540px)" }}>
-                <iframe
-                  src="https://www.youtube.com/embed/159coWa2CKA?rel=0&loop=1&playlist=159coWa2CKA"
-                  title="CaseMate AI 소개"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full"
-                  style={{ transform: "scale(1.02)", transformOrigin: "center" }}
+              <a
+                href="https://youtu.be/sGSVhQwz53c?si=UIPY4sm9nPOrJmcg"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded-xl overflow-hidden shadow-lg border border-white/15 ml-auto mr-2 w-[clamp(180px,38vw,540px)] transition-transform duration-300 ease-in-out hover:scale-[1.6] hover:-translate-y-[15%] relative z-[100]"
+                style={{ aspectRatio: "16/9" }}
+              >
+                <video
+                  src="/loginpage-video.mp4"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover pointer-events-none"
                 />
-              </div>
+              </a>
             </div>
           </div>
 
