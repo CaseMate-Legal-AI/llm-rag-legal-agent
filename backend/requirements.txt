@@ -1,48 +1,34 @@
-# FastAPI 웹 프레임워크 및 서버
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
 python-multipart>=0.0.6
 
-# 데이터 검증 및 설정
 pydantic>=2.5.3
 python-dotenv>=1.0.0
 
-# HTTP 클라이언트
 httpx>=0.27.0
 
-# LLM 관련 라이브러리
 openai>=1.10.0
 
-# Cross-Encoder 리랭킹 - HuggingFace API 사용으로 로컬 모델 불필요
-# sentence-transformers>=2.2.0
-
-# 문서 처리
 pymupdf>=1.24.14
 pillow>=10.3.0
 numpy
 
-# 벡터 DB
 qdrant-client>=1.12.0
 
-# Sparse embedding (BM25)
 fastembed>=0.4.2
 
-# 데이터베이스 (PostgreSQL with Supabase)
 sqlalchemy>=2.0.25
 psycopg2-binary>=2.9.9
 supabase>=2.10.0
 
-# 인증 및 보안
 passlib>=1.7.4
 bcrypt==4.0.1
 python-jose[cryptography]>=3.3.0
 
-# LangGraph 에이전트
 langgraph>=0.2.60
 langchain-core>=0.3.29
 langchain-openai>=0.3.0
 langgraph-checkpoint-sqlite>=2.0.0
 aiosqlite>=0.20.0
 
-# 에러 추적
 sentry-sdk>=2.0.0
