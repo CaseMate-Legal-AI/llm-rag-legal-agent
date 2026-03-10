@@ -40,6 +40,7 @@ _warmup_task = None
 async def warmup_ping_loop():
     """HF API 워밍업 핑 루프 (슬립 방지)"""
     from app.services.precedent_embedding_service import warmup_hf_api
+    from app.services.precedent_similar_service import is_reranking_enabled, warmup_reranker
     interval = EmbeddingConfig.WARMUP_INTERVAL_MINUTES * 60
 
     while True:
@@ -47,6 +48,8 @@ async def warmup_ping_loop():
             await asyncio.sleep(interval)
             logger.info("HF API 워밍업 핑 실행...")
             warmup_hf_api()
+            if is_reranking_enabled():
+                warmup_reranker()
         except asyncio.CancelledError:
             logger.info("워밍업 핑 태스크 종료")
             break
@@ -59,15 +62,11 @@ async def lifespan(app: FastAPI):
     """서버 시작/종료 시 실행되는 lifespan 이벤트"""
     global _warmup_task
 
-    # Startup: 리랭커 모델 warm-up
-    from app.services.precedent_similar_service import is_reranking_enabled, get_reranker_model
+    # Startup: 리랭킹 설정 및 워밍업
+    from app.services.precedent_similar_service import is_reranking_enabled, warmup_reranker
     if is_reranking_enabled():
-        logger.info("서버 시작: 리랭커 모델 warm-up 중...")
-        try:
-            get_reranker_model()
-            logger.info("리랭커 모델 warm-up 완료")
-        except Exception as e:
-            logger.warning(f"리랭커 warm-up 실패 (첫 요청 시 로드됨): {e}")
+        logger.info("서버 시작: 리랭킹 활성 (HuggingFace API 사용)")
+        warmup_reranker()
     else:
         logger.info("서버 시작: 리랭킹 비활성 (USE_RERANKING=false)")
 

@@ -40,6 +40,8 @@ STATUS_MESSAGES = {
     "agent": "도구를 선택하고 있습니다...",
     "tools": "도구를 실행하고 있습니다...",
     "generator": "답변을 작성하고 있습니다...",
+    "rule_executor": "요청을 처리하고 있습니다...",
+    "fallback_rag": "판례와 법령을 검색하고 있습니다...",
 }
 
 STATUS_STEPS = {
@@ -48,6 +50,8 @@ STATUS_STEPS = {
     "agent": "thinking",
     "tools": "executing",
     "generator": "generating",
+    "rule_executor": "executing",
+    "fallback_rag": "searching",
 }
 
 TOOL_MESSAGES = {
@@ -208,6 +212,15 @@ async def _stream_graph_events(graph, input_data: dict, config: dict, collected:
             if isinstance(output, dict) and "route" in output:
                 current_route = output["route"]
                 logger.info(f"[Agent] Route 감지: {current_route}")
+
+        # ── rule_ask 노드 종료 → 역질문 전송 ──
+        elif kind == "on_chain_end" and event.get("name") == "rule_ask":
+            output = event.get("data", {}).get("output", {})
+            messages = output.get("messages", [])
+            if messages:
+                content = messages[-1].content if hasattr(messages[-1], 'content') else str(messages[-1])
+                response_text += content
+                yield _sse_event("token", {"content": content})
 
         # ── LLM 토큰 스트리밍 ──
         # generator: 항상 스트리밍

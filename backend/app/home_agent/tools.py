@@ -2,7 +2,7 @@
 에이전트 도구 정의 — 기존 백엔드 서비스를 @tool로 래핑
 
 create_tools(user_id, law_firm_id)를 호출하면
-해당 사용자 전용 도구 세트(11개)를 반환한다.
+해당 사용자 전용 도구 세트(10개)를 반환한다.
 
 반환 형식: JSON 문자열 {"text": "LLM용 마크다운", "data": 구조화 데이터}
 """
@@ -82,19 +82,23 @@ def create_tools(user_id: int, law_firm_id: int):
                     )
                 )
 
-                # 검색어가 있으면 의뢰인/상대방/제목에서 필터링 (단어별 OR)
+                # 검색어가 있으면 의뢰인/상대방/제목에서 필터링 (단어별 AND)
+                # 각 단어는 최소 하나의 필드에 매칭되어야 하고, 모든 단어가 매칭되어야 함
                 if search_query and search_query.strip():
-                    conditions = []
+                    from sqlalchemy import and_
+                    word_conditions = []
                     for word in search_query.strip().split():
                         if len(word) >= 2:
                             term = f"%{word}%"
-                            conditions.extend([
+                            # 각 단어가 하나의 필드에라도 매칭되면 OK
+                            word_conditions.append(or_(
                                 Case.client_name.ilike(term),
                                 Case.opponent_name.ilike(term),
                                 Case.title.ilike(term),
-                            ])
-                    if conditions:
-                        query = query.filter(or_(*conditions))
+                            ))
+                    if word_conditions:
+                        # 모든 단어가 매칭되어야 함 (AND)
+                        query = query.filter(and_(*word_conditions))
 
                 rows = query.order_by(Case.created_at.desc()).limit(20).all()
                 if not rows:
@@ -270,59 +274,6 @@ def create_tools(user_id: int, law_firm_id: int):
         except Exception as e:
             logger.error(f"관계도 생성 실패: {e}", exc_info=True)
             return _structured_return(f"관계도 생성 실패: {e}", None)
-
-    @tool
-    def search_precedents(query: str, limit: int = 5) -> str:
-        """판례만 검색합니다. 사용자가 명시적으로 "판례 찾아줘"라고 요청할 때만 사용하세요.
-
-        주의: 일반 법률 질문(성립 요건, 차이점, 처벌 기준 등)에는 이 도구 대신 rag_search를 사용하세요.
-
-        Args:
-            query: 검색 키워드 (예: "사기죄 공소시효", "교통사고 손해배상")
-            limit: 반환할 결과 수 (기본값: 5)
-        """
-        try:
-            from app.services.precedent_search_service import PrecedentSearchService
-
-            service = PrecedentSearchService()
-
-            # "최근" 키워드가 있으면 최신순 정렬
-            sort_order = "latest" if _has_recency_keyword(query) else "relevance"
-            result = service.search_cases(query=query, limit=limit, sort=sort_order)
-
-            items = result.get("results", [])
-            if not items:
-                return _structured_return(f"'{query}'에 대한 판례를 찾지 못했습니다.", [])
-
-            data = []
-            lines = [f"## 판례 검색 결과 ({len(items)}건)\n"]
-            for i, item in enumerate(items, 1):
-                # judgment_date를 문자열로 안전하게 변환
-                jdate = item.get("judgment_date", "?")
-                if hasattr(jdate, "strftime"):
-                    jdate = jdate.strftime("%Y-%m-%d")
-                elif isinstance(jdate, int):
-                    jdate = str(jdate)
-
-                data.append({
-                    "case_number": str(item.get("case_number", "?")),
-                    "case_name": str(item.get("case_name", "?")),
-                    "court": str(item.get("court_name", "?")),
-                    "judgment_date": str(jdate),
-                    "content_snippet": str((item.get("content", "") or ""))[:500],
-                })
-                lines.append(
-                    f"### {i}. {item.get('case_number', '?')}\n"
-                    f"- 사건명: {item.get('case_name', '?')}\n"
-                    f"- 법원: {item.get('court_name', '?')}\n"
-                    f"- 선고일: {jdate}\n"
-                    f"- 내용: {(item.get('content', '') or '')[:500]}\n"
-                )
-            text = "\n".join(lines)
-            return _structured_return(text, data)
-        except Exception as e:
-            logger.error(f"판례 검색 실패: {e}", exc_info=True)
-            return _structured_return(f"판례 검색 실패: {e}", None)
 
     @tool
     def summarize_precedent(case_number: str) -> str:
@@ -858,7 +809,6 @@ def create_tools(user_id: int, law_firm_id: int):
         analyze_case,
         generate_timeline,
         generate_relationship,
-        search_precedents,
         summarize_precedent,
         compare_precedent,
         search_laws,
